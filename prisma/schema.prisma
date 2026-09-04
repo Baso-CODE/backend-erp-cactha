@@ -1,0 +1,578 @@
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "mysql"
+}
+
+// ==========================================
+// PART 1: USER, RBAC & AUDIT LOG
+// ==========================================
+
+enum Role {
+    OWNER
+    SALES_MANAGER
+    SALES_EXECUTIVE
+    ACCOUNT_MANAGER
+    PROJECT_MANAGER
+    SPECIALIST
+    DESIGNER
+    EDITOR
+    TALENT
+    FINANCE
+    ADMIN
+    CLIENT
+}
+
+model User {
+    id        String   @id @default(uuid())
+    email     String   @unique
+    name      String
+    password  String
+    role      Role     @default(ADMIN)
+    isActive  Boolean  @default(true)
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    // Relasi sebagai PIC/Owner
+    leadsManaged        Lead[]       @relation("SalesAssignee")
+    clientsManaged      Client[]     @relation("AccountManager")
+    projectsManaged     Project[]    @relation("ProjectManager")
+    tasksAssigned       Task[]       @relation("TaskAssignee")
+    activitiesDone      Activity[]   @relation("ActivityPerformer")
+    auditLogs           AuditLog[]
+    uploadedAttachments Attachment[] @relation("UploadedAttachments")
+}
+
+model AuditLog {
+    id        String   @id @default(uuid())
+    userId    String
+    user      User     @relation(fields: [userId], references: [id])
+    action    String // CREATE, UPDATE, DELETE, COMPLETE, dll
+    entity    String // Nama Tabel (Lead, Client, Project, dll)
+    entityId  String // ID dari entitas yang diubah
+    details   Json? // Menyimpan data sebelum/sesudah (Audit Trail)
+    createdAt DateTime @default(now())
+}
+
+// ==========================================
+// PART 2: CRM (LEAD, ACTIVITY, PROPOSAL)
+// ==========================================
+
+enum LeadStatus {
+    NEW
+    QUALIFIED
+    PROPOSAL
+    NEGOTIATION
+    WON
+    LOST
+}
+
+model Lead {
+    id             String     @id @default(uuid())
+    leadCode       String     @unique
+    company        String
+    pic            String
+    phone          String
+    email          String?
+    industry       String?
+    address        String?
+    estimatedValue Decimal?   @db.Decimal(15, 2)
+    status         LeadStatus @default(NEW)
+    source         String? // Website, Referral, Event, dll.
+
+    assigneeId String
+    assignee   User   @relation("SalesAssignee", fields: [assigneeId], references: [id])
+
+    activities  Activity[]
+    proposals   Proposal[]
+    quotations  Quotation[]
+    attachments Attachment[] @relation("LeadAttachments")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+enum ActivityType {
+    CALL
+    WHATSAPP
+    EMAIL
+    MEETING
+    VISIT
+    NOTE
+}
+
+enum ActivityStatus {
+    SCHEDULED
+    COMPLETED
+    CANCELLED
+}
+
+model Activity {
+    id          String       @id @default(uuid())
+    leadId      String
+    lead        Lead         @relation(fields: [leadId], references: [id])
+    type        ActivityType
+    subject     String
+    description String       @db.Text
+    result      String?      @db.Text
+    attachment  String? // URL File sederhana (jika tidak butuh tabel Attachment)
+
+    activityDate DateTime
+    nextFollowUp DateTime? // Jika diisi, sistem membuat activity Scheduled baru
+    status       ActivityStatus @default(COMPLETED)
+
+    performedById String
+    performedBy   User   @relation("ActivityPerformer", fields: [performedById], references: [id])
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+enum ProposalStatus {
+    DRAFT
+    SENT
+    APPROVED
+    REJECTED
+    EXPIRED
+    WITHDRAWN
+}
+
+model Proposal {
+    id           String         @id @default(uuid())
+    proposalNo   String         @unique
+    version      String         @default("1.0")
+    leadId       String
+    lead         Lead           @relation(fields: [leadId], references: [id])
+    subject      String
+    amount       Decimal        @db.Decimal(15, 2)
+    proposalDate DateTime
+    validUntil   DateTime
+    status       ProposalStatus @default(DRAFT)
+    fileUrl      String?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Quotation {
+    id          String         @id @default(uuid())
+    quotationNo String         @unique
+    version     String         @default("1.0")
+    leadId      String
+    lead        Lead           @relation(fields: [leadId], references: [id])
+    amount      Decimal        @db.Decimal(15, 2)
+    status      ProposalStatus @default(DRAFT)
+
+    contracts Contract[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// PART 3: CLIENT & CONTRACT
+// ==========================================
+
+enum ClientStatus {
+    ACTIVE
+    INACTIVE
+}
+
+model Client {
+    id           String       @id @default(uuid())
+    clientCode   String       @unique
+    companyName  String
+    industry     String?
+    businessType String?
+    website      String?
+    address      String?      @db.Text
+    status       ClientStatus @default(ACTIVE)
+
+    accountManagerId String
+    accountManager   User   @relation("AccountManager", fields: [accountManagerId], references: [id])
+
+    contacts  ContactPerson[]
+    contracts Contract[]
+    projects  Project[]
+    tickets   SupportTicket[]
+    invoices  Invoice[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model ContactPerson {
+    id         String       @id @default(uuid())
+    clientId   String
+    client     Client       @relation(fields: [clientId], references: [id])
+    fullName   String
+    position   String
+    department String?
+    email      String
+    phone      String?
+    mobile     String?
+    isPrimary  Boolean      @default(false)
+    status     ClientStatus @default(ACTIVE)
+
+    approvalRequests ApprovalRequest[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+enum ContractStatus {
+    DRAFT
+    ACTIVE
+    EXPIRED
+    TERMINATED
+}
+
+model Contract {
+    id          String     @id @default(uuid())
+    contractNo  String     @unique
+    title       String
+    clientId    String
+    client      Client     @relation(fields: [clientId], references: [id])
+    quotationId String?
+    quotation   Quotation? @relation(fields: [quotationId], references: [id])
+
+    contractType String?
+    startDate    DateTime
+    endDate      DateTime
+    value        Decimal  @db.Decimal(15, 2)
+    currency     String   @default("IDR")
+    paymentTerm  String?
+
+    slaTerms        String? @db.Text
+    termsConditions String? @db.Text
+    documentUrl     String?
+
+    status          ContractStatus @default(DRAFT)
+    renewalReminder Boolean        @default(false)
+
+    projects          Project[]
+    recurringBillings RecurringBilling[]
+    attachments       Attachment[]       @relation("ContractAttachments")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// PART 4: MASTER DATA & WORKFLOW ENGINE
+// ==========================================
+
+model MasterService {
+    id          String  @id @default(uuid())
+    code        String  @unique
+    name        String // Google Ads, Meta Ads, SEO, Website
+    description String?
+    isActive    Boolean @default(true)
+
+    workflowTemplateId String?
+    defaultTemplate    WorkflowTemplate? @relation(fields: [workflowTemplateId], references: [id])
+
+    projectServices ProjectService[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model WorkflowTemplate {
+    id          String  @id @default(uuid())
+    name        String
+    description String?
+    steps       Json // Urutan task template (Brief -> Production -> QC)
+
+    masterServices MasterService[]
+    instances      WorkflowInstance[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model WorkflowInstance {
+    id                 String           @id @default(uuid())
+    workflowTemplateId String
+    template           WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id])
+
+    projectServiceId String         @unique
+    projectService   ProjectService @relation(fields: [projectServiceId], references: [id])
+
+    status      String // RUNNING, PAUSED, COMPLETED
+    currentStep String // Step saat ini
+
+    tasks Task[] // Task yang digenerate oleh instance ini
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// PART 5: PROJECT & SERVICE
+// ==========================================
+
+enum ProjectStatus {
+    DRAFT
+    PLANNING
+    IN_PROGRESS
+    INTERNAL_REVIEW
+    PENDING_CLIENT_APPROVAL
+    CLIENT_REVISION
+    APPROVED
+    COMPLETED
+    ON_HOLD
+    CANCELLED
+}
+
+model Project {
+    id          String  @id @default(uuid())
+    projectCode String  @unique
+    name        String
+    projectType String // Client Project, Brainstorming, dll
+    description String? @db.Text
+
+    clientId   String
+    client     Client    @relation(fields: [clientId], references: [id])
+    contractId String?
+    contract   Contract? @relation(fields: [contractId], references: [id])
+
+    projectManagerId String
+    projectManager   User   @relation("ProjectManager", fields: [projectManagerId], references: [id])
+
+    startDate     DateTime
+    targetEndDate DateTime
+    actualEndDate DateTime?
+    status        ProjectStatus @default(PLANNING)
+
+    services           ProjectService[]
+    tasks              Task[]
+    deliverables       Deliverable[]
+    performanceMetrics PerformanceMetric[]
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model ProjectService {
+    id        String  @id @default(uuid())
+    projectId String
+    project   Project @relation(fields: [projectId], references: [id])
+
+    masterServiceId String
+    masterService   MasterService @relation(fields: [masterServiceId], references: [id])
+
+    startDate DateTime?
+    endDate   DateTime?
+
+    workflowInstance WorkflowInstance?
+}
+
+// ==========================================
+// PART 6: TASK MANAGEMENT
+// ==========================================
+
+enum TaskStatus {
+    TODO
+    IN_PROGRESS
+    REVIEW
+    BLOCKED
+    COMPLETED
+}
+
+enum Priority {
+    LOW
+    MEDIUM
+    HIGH
+}
+
+model Task {
+    id          String  @id @default(uuid())
+    taskCode    String  @unique
+    title       String
+    description String? @db.Text
+
+    projectId String
+    project   Project @relation(fields: [projectId], references: [id])
+
+    workflowInstanceId String?
+    workflowInstance   WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id])
+
+    assigneeId String
+    assignee   User   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+
+    priority  Priority   @default(MEDIUM)
+    status    TaskStatus @default(TODO)
+    startDate DateTime?
+    dueDate   DateTime
+
+    checklists  TaskChecklist[]
+    comments    TaskComment[]
+    attachments Attachment[]    @relation("TaskAttachments")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model TaskChecklist {
+    id          String  @id @default(uuid())
+    taskId      String
+    task        Task    @relation(fields: [taskId], references: [id])
+    description String
+    isCompleted Boolean @default(false)
+}
+
+model TaskComment {
+    id        String   @id @default(uuid())
+    taskId    String
+    task      Task     @relation(fields: [taskId], references: [id])
+    userId    String // ID dari pengisi komentar (relasi opsional)
+    comment   String   @db.Text
+    createdAt DateTime @default(now())
+}
+
+// ==========================================
+// PART 7: DELIVERABLES & CLIENT APPROVAL
+// ==========================================
+
+enum ApprovalStatus {
+    DRAFT
+    INTERNAL_REVIEW
+    READY_FOR_CLIENT
+    PENDING_CLIENT_APPROVAL
+    REVISION_REQUIRED
+    REJECTED
+    APPROVED
+    SUPERSEDED
+}
+
+model Deliverable {
+    id          String         @id @default(uuid())
+    projectId   String
+    project     Project        @relation(fields: [projectId], references: [id])
+    name        String
+    version     String         @default("1.0")
+    description String?        @db.Text
+    fileUrl     String? // Untuk file utama
+    status      ApprovalStatus @default(DRAFT)
+
+    approvalRequests ApprovalRequest[]
+    attachments      Attachment[]      @relation("DeliverableAttachments")
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model ApprovalRequest {
+    id            String      @id @default(uuid())
+    deliverableId String
+    deliverable   Deliverable @relation(fields: [deliverableId], references: [id])
+
+    clientId   String? // Jika di-approve oleh level client
+    approverId String? // ID ContactPerson client
+    approver   ContactPerson? @relation(fields: [approverId], references: [id])
+
+    status   ApprovalStatus @default(PENDING_CLIENT_APPROVAL)
+    feedback String?        @db.Text // Comment/Revisi dari client
+
+    requestedAt DateTime  @default(now())
+    respondedAt DateTime?
+}
+
+// ==========================================
+// PART 8: FINANCE & PERFORMANCE
+// ==========================================
+
+model Invoice {
+    id        String   @id @default(uuid())
+    invoiceNo String   @unique
+    clientId  String
+    client    Client   @relation(fields: [clientId], references: [id])
+    amount    Decimal  @db.Decimal(15, 2)
+    dueDate   DateTime
+    status    String // UNPAID, PAID, OVERDUE, PARTIAL
+    fileUrl   String?
+
+    payments  Payment[]
+    createdAt DateTime  @default(now())
+}
+
+model Payment {
+    id            String   @id @default(uuid())
+    paymentNo     String   @unique
+    invoiceId     String
+    invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+    amountPaid    Decimal  @db.Decimal(15, 2)
+    paymentDate   DateTime
+    paymentMethod String // Transfer, Credit Card, dll
+    reference     String? // Bukti transfer
+    status        String // PENDING, VERIFIED, REJECTED
+
+    createdAt DateTime @default(now())
+}
+
+model RecurringBilling {
+    id          String   @id @default(uuid())
+    contractId  String
+    contract    Contract @relation(fields: [contractId], references: [id])
+    amount      Decimal  @db.Decimal(15, 2)
+    frequency   String // MONTHLY, QUARTERLY, ANNUALLY
+    nextRunDate DateTime
+    isActive    Boolean  @default(true)
+}
+
+model PerformanceMetric {
+    id         String   @id @default(uuid())
+    projectId  String
+    project    Project  @relation(fields: [projectId], references: [id])
+    platform   String // Google Ads, Meta, GA4, TikTok, SEO
+    metricDate DateTime // Tanggal data ditarik
+    metrics    Json // Simpan performa { impressions: 1000, clicks: 50, ROAS: 3.5 }
+
+    createdAt DateTime @default(now())
+}
+
+// ==========================================
+// PART 9: UNIVERSAL ATTACHMENT & SUPPORT
+// ==========================================
+
+model Attachment {
+    id       String @id @default(uuid())
+    fileName String
+    fileUrl  String
+    fileType String // PDF, JPG, DOCX
+    fileSize Int // Size in bytes
+
+    // Polymorphic relations (Opsional, diisi salah satu sesuai tempat upload)
+    leadId String?
+    lead   Lead?   @relation("LeadAttachments", fields: [leadId], references: [id])
+
+    taskId String?
+    task   Task?   @relation("TaskAttachments", fields: [taskId], references: [id])
+
+    deliverableId String?
+    deliverable   Deliverable? @relation("DeliverableAttachments", fields: [deliverableId], references: [id])
+
+    contractId String?
+    contract   Contract? @relation("ContractAttachments", fields: [contractId], references: [id])
+
+    uploadedById String
+    uploadedBy   User   @relation("UploadedAttachments", fields: [uploadedById], references: [id])
+
+    createdAt DateTime @default(now())
+}
+
+model SupportTicket {
+    id          String @id @default(uuid())
+    ticketNo    String @unique
+    clientId    String
+    client      Client @relation(fields: [clientId], references: [id])
+    subject     String
+    description String @db.Text
+    status      String // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}

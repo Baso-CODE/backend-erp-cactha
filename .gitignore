@@ -1,0 +1,7 @@
+node_modules
+docker
+dist
+.env
+.wwebjs_auth/
+.wwebjs_cache/
+whatsapp-sessions/
