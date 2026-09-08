@@ -28,8 +28,8 @@ export default class App {
     this.app.use(globalLimiter);
     this.app.use(
       cors({
-        origin: true,
-        credentials: true,
+        origin: process.env.FRONTEND_URL || "http://localhost:3000",
+        credentials: true, // Wajib agar browser bisa menerima & mengirim HTTP-Only Cookie
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowedHeaders: [
           "Content-Type",

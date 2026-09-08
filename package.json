@@ -11,6 +11,9 @@
     "prepare": "husky",
     "postinstall": "prisma skills sync || exit 0"
   },
+  "prisma": {
+    "seed": "bun prisma/seed.ts"
+  },
   "keywords": [],
   "author": "Baso",
   "license": "ISC",

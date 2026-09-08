@@ -19,6 +19,9 @@ export class AuthRouter {
       validateBody(LoginDTO),
       this.authController.login,
     );
+
+    // Endpoint Logout (Baru)
+    this.router.post("/logout", this.authController.logout);
   };
 
   getRouter(): Router {
