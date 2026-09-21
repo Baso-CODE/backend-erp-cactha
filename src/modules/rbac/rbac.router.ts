@@ -2,6 +2,7 @@ import { Role } from "@prisma/client";
 import { Router } from "express";
 import { injectable } from "tsyringe";
 
+import { authenticateToken } from "../../middleware/auth.middleware";
 import { requireRoles } from "../../middleware/role.middleware";
 import { validateBody } from "../../middleware/validateBody.middleware";
 import { validateQuery } from "../../middleware/validateQuery.middleware";
@@ -33,8 +34,27 @@ export class RbacRouter {
     this.router.get("/roles", this.rbacController.getRoles);
 
     // ------------------------------------------
-    // USER MANAGEMENT
+    // USER MANAGEMENT & METRICS (Dilindungi Auth & Role)
     // ------------------------------------------
+
+    this.router.get(
+      "/metrics",
+      authenticateToken,
+      requireRoles(...MANAGEMENT_ROLES),
+      this.rbacController.getMetrics,
+    );
+
+    /**
+     * GET /rbac/performance
+     * Ambil data grafik performa tim (?period=7days|30days|3months)
+     * Akses: OWNER, ADMIN
+     */
+    this.router.get(
+      "/performance",
+      authenticateToken,
+      requireRoles(...MANAGEMENT_ROLES),
+      this.rbacController.getPerformance,
+    );
 
     /**
      * GET /rbac/users
@@ -43,6 +63,7 @@ export class RbacRouter {
      */
     this.router.get(
       "/users",
+      authenticateToken,
       requireRoles(...MANAGEMENT_ROLES),
       validateQuery(QueryUserDTO),
       this.rbacController.getAllUsers,
@@ -54,6 +75,7 @@ export class RbacRouter {
      */
     this.router.get(
       "/users/:id",
+      authenticateToken,
       requireRoles(...MANAGEMENT_ROLES),
       this.rbacController.getUserById,
     );
@@ -65,6 +87,7 @@ export class RbacRouter {
      */
     this.router.post(
       "/users",
+      authenticateToken,
       requireRoles(...MANAGEMENT_ROLES),
       validateBody(CreateUserDTO),
       this.rbacController.createUser,
@@ -77,6 +100,7 @@ export class RbacRouter {
      */
     this.router.patch(
       "/users/:id",
+      authenticateToken,
       requireRoles(...MANAGEMENT_ROLES),
       validateBody(UpdateUserDTO),
       this.rbacController.updateUser,
@@ -89,6 +113,7 @@ export class RbacRouter {
      */
     this.router.patch(
       "/users/:id/toggle-status",
+      authenticateToken,
       requireRoles(...MANAGEMENT_ROLES),
       this.rbacController.toggleUserStatus,
     );
@@ -99,6 +124,7 @@ export class RbacRouter {
      */
     this.router.delete(
       "/users/:id",
+      authenticateToken,
       requireRoles(Role.OWNER),
       this.rbacController.deleteUser,
     );
@@ -114,6 +140,7 @@ export class RbacRouter {
      */
     this.router.get(
       "/audit-logs",
+      authenticateToken,
       requireRoles(...MANAGEMENT_ROLES),
       this.rbacController.getAuditLogs,
     );

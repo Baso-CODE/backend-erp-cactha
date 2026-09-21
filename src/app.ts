@@ -40,9 +40,13 @@ export default class App {
       }),
     );
 
-    this.app.use(json({ limit: "50mb" }));
+    // 1. Pasang cookie-parser lebih awal agar req.cookies langsung siap dibaca
     this.app.use(cookieParser());
+
+    // 2. Parser JSON untuk body request
+    this.app.use(json({ limit: "50mb" }));
   }
+
   private routes(): void {
     const rbacRouter = container.resolve(RbacRouter);
     const authRouter = container.resolve(AuthRouter);
@@ -53,9 +57,11 @@ export default class App {
     this.app.use("/rbac", rbacRouter.getRouter());
     this.app.use("/auth", authRouter.getRouter());
   }
+
   private handleError(): void {
     this.app.use(errorMiddleware);
   }
+
   public async start(): Promise<void> {
     try {
       //   const prismaService = container.resolve(PrismaService);

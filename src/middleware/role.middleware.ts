@@ -5,8 +5,17 @@ export const requireRoles = (...allowedRoles: Role[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     const user = (req as any).user;
 
-    // Pastikan user ada dan role-nya termasuk dalam array allowedRoles
-    if (!user || !allowedRoles.includes(user.role)) {
+    if (!user || !user.role) {
+      res.status(401).json({
+        success: false,
+        message: "Autentikasi gagal. Sesi tidak valid.",
+      });
+      return;
+    }
+
+    const allowedRolesString = allowedRoles.map((r) => String(r));
+
+    if (!allowedRolesString.includes(String(user.role))) {
       res.status(403).json({
         success: false,
         message:

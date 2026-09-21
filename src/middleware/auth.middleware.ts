@@ -6,28 +6,27 @@ export const authenticateToken = (
   res: Response,
   next: NextFunction,
 ): void => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
+  const token = req.cookies?.token;
 
   if (!token) {
     res.status(401).json({
       success: false,
-      message: "Akses ditolak. Token tidak ditemukan.",
+      message: "Akses ditolak. Token tidak ditemukan di cookie.",
     });
     return;
   }
 
-  jwt.verify(token, process.env.JWT_SECRET as string, (err, decoded) => {
-    if (err) {
-      res.status(403).json({
-        success: false,
-        message: "Token tidak valid atau sudah kedaluwarsa.",
-      });
-      return;
-    }
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string);
 
     // Sisipkan data payload (id, role) ke request
     (req as any).user = decoded;
     next();
-  });
+  } catch (err) {
+    res.status(403).json({
+      success: false,
+      message: "Token tidak valid atau sudah kedaluwarsa.",
+    });
+    return;
+  }
 };

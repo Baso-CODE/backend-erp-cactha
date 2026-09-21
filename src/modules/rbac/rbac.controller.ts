@@ -194,4 +194,25 @@ export class RbacController {
       next(error);
     }
   };
+
+  // Untuk mengisi 4 Kartu Metrik Paling Atas
+  getMetrics = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const metrics = await this.rbacService.getUserMetrics();
+      res.status(200).json({ success: true, data: metrics });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  // Untuk mengisi Grafik Area Chart
+  getPerformance = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const period = (req.query.period as any) || "7days";
+      const chartData = await this.rbacService.getTeamPerformance(period);
+      res.status(200).json({ success: true, data: chartData });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

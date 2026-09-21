@@ -328,6 +328,48 @@ export class RbacService {
   }
 
   // ==========================================
+  // DASHBOARD & PERFORMANCE METRICS
+  // ==========================================
+
+  // 1. Method untuk 4 Kartu Metrik di atas
+  async getUserMetrics() {
+    const totalUsers = await this.prisma.user.count();
+    const activeUsers = await this.prisma.user.count({
+      where: { isActive: true },
+    });
+    const inactiveUsers = totalUsers - activeUsers;
+
+    // Asumsi: Jika Anda punya tabel Task/Project, hitung efisiensi dari sana.
+    // Sementara kita mock nilai persentase agar sesuai UI.
+    const averageEfficiency = 91.4;
+
+    return {
+      totalUsers,
+      activeUsers,
+      inactiveUsers,
+      averageEfficiency,
+    };
+  }
+
+  // 2. Method untuk Area Chart (Grafik Performa)
+  async getTeamPerformance(period: "7days" | "30days" | "3months" = "7days") {
+    // Nantinya ini query ke tabel Task (di mana status = 'COMPLETED')
+    // yang di-group by tanggal (createdAt/updatedAt).
+    // Untuk tahap ini, kita kembalikan struktur yang siap dibaca Recharts:
+
+    // Contoh implementasi data dinamis (Mock untuk saat ini):
+    return [
+      { date: "Jun 24", performance: 40 },
+      { date: "Jun 25", performance: 30 },
+      { date: "Jun 26", performance: 65 },
+      { date: "Jun 27", performance: 85 },
+      { date: "Jun 28", performance: 50 },
+      { date: "Jun 29", performance: 70 },
+      { date: "Jun 30", performance: 95 },
+    ];
+  }
+
+  // ==========================================
   // HELPER: Daftar semua nilai Role yang valid
   // ==========================================
   getRoles(): string[] {
