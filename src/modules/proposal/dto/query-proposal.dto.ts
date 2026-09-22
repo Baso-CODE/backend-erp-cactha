@@ -1,8 +1,9 @@
-// query-user.dto.ts
+// dto/query-proposal.dto.ts
 
+import { ProposalStatus } from "@prisma/client";
 import { Transform } from "class-transformer";
 import {
-  IsBoolean,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -11,19 +12,14 @@ import {
   Min,
 } from "class-validator";
 
-export class QueryUserDTO {
-  @IsUUID("4", { message: "Role ID tidak valid" })
+export class QueryProposalDTO {
+  @IsUUID("4", { message: "Lead ID tidak valid" })
   @IsOptional()
-  roleId?: string;
+  leadId?: string;
 
-  @IsBoolean()
+  @IsEnum(ProposalStatus, { message: "Status proposal tidak valid" })
   @IsOptional()
-  @Transform(({ value }) => {
-    if (value === "true") return true;
-    if (value === "false") return false;
-    return value;
-  })
-  isActive?: boolean;
+  status?: ProposalStatus;
 
   @IsString()
   @IsOptional()

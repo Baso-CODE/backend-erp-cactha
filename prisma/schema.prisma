@@ -6,36 +6,41 @@ datasource db {
     provider = "mysql"
 }
 
+model Counter {
+    key       String   @id
+    value     Int      @default(0)
+    updatedAt DateTime @updatedAt
+}
+
 // ==========================================
 // PART 1: USER, RBAC & AUDIT LOG
 // ==========================================
 
-enum Role {
-    OWNER
-    SALES_MANAGER
-    SALES_EXECUTIVE
-    ACCOUNT_MANAGER
-    PROJECT_MANAGER
-    SPECIALIST
-    DESIGNER
-    EDITOR
-    TALENT
-    FINANCE
-    ADMIN
+enum AccessScope {
+    OWN
+    TEAM
+    PROJECT
     CLIENT
+    ALL
 }
+
+// ==========================================
+// USER
+// ==========================================
 
 model User {
     id        String   @id @default(uuid())
     email     String   @unique
     name      String
     password  String
-    role      Role     @default(ADMIN)
     isActive  Boolean  @default(true)
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
 
-    // Relasi sebagai PIC/Owner
+    // RBAC
+    roles UserRole[]
+
+    // Relasi sebagai PIC / Owner
     leadsManaged        Lead[]       @relation("SalesAssignee")
     clientsManaged      Client[]     @relation("AccountManager")
     projectsManaged     Project[]    @relation("ProjectManager")
@@ -43,17 +48,97 @@ model User {
     activitiesDone      Activity[]   @relation("ActivityPerformer")
     auditLogs           AuditLog[]
     uploadedAttachments Attachment[] @relation("UploadedAttachments")
+
+    @@index([isActive])
 }
+
+// ==========================================
+// ROLE
+// ==========================================
+
+model Role {
+    id          String   @id @default(uuid())
+    code        String   @unique
+    name        String
+    description String?
+    isSystem    Boolean  @default(false)
+    isActive    Boolean  @default(true)
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    users       UserRole[]
+    permissions RolePermission[]
+}
+
+// ==========================================
+// PERMISSION
+// ==========================================
+
+model Permission {
+    id          String   @id @default(uuid())
+    code        String   @unique
+    module      String
+    action      String
+    description String?
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    roles RolePermission[]
+
+    @@index([module])
+    @@index([action])
+}
+
+// ==========================================
+// USER <-> ROLE
+// ==========================================
+
+model UserRole {
+    userId     String
+    roleId     String
+    assignedAt DateTime @default(now())
+
+    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+    role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+    @@id([userId, roleId])
+    @@index([roleId])
+}
+
+// ==========================================
+// ROLE <-> PERMISSION
+// ==========================================
+
+model RolePermission {
+    roleId       String
+    permissionId String
+    scope        AccessScope @default(OWN)
+
+    role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+    permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+    @@id([roleId, permissionId])
+    @@index([permissionId])
+}
+
+// ==========================================
+// AUDIT LOG
+// ==========================================
 
 model AuditLog {
     id        String   @id @default(uuid())
-    userId    String
-    user      User     @relation(fields: [userId], references: [id])
-    action    String // CREATE, UPDATE, DELETE, COMPLETE, dll
-    entity    String // Nama Tabel (Lead, Client, Project, dll)
-    entityId  String // ID dari entitas yang diubah
-    details   Json? // Menyimpan data sebelum/sesudah (Audit Trail)
+    userId    String?
+    action    String
+    entity    String
+    entityId  String
+    details   Json?
     createdAt DateTime @default(now())
+
+    user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+    @@index([userId])
+    @@index([entity, entityId])
+    @@index([createdAt])
 }
 
 // ==========================================
@@ -77,10 +162,10 @@ model Lead {
     phone          String
     email          String?
     industry       String?
-    address        String?
+    address        String?    @db.Text
     estimatedValue Decimal?   @db.Decimal(15, 2)
     status         LeadStatus @default(NEW)
-    source         String? // Website, Referral, Event, dll.
+    source         String?
 
     assigneeId String
     assignee   User   @relation("SalesAssignee", fields: [assigneeId], references: [id])
@@ -92,6 +177,11 @@ model Lead {
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+
+    @@index([status])
+    @@index([assigneeId])
+    @@index([company])
+    @@index([createdAt])
 }
 
 enum ActivityType {
@@ -156,19 +246,32 @@ model Proposal {
     updatedAt DateTime @updatedAt
 }
 
+enum QuotationStatus {
+    DRAFT
+    SENT
+    APPROVED
+    REJECTED
+    EXPIRED
+    WITHDRAWN
+}
+
 model Quotation {
-    id          String         @id @default(uuid())
-    quotationNo String         @unique
-    version     String         @default("1.0")
+    id          String          @id @default(uuid())
+    quotationNo String          @unique
+    version     String          @default("1.0")
     leadId      String
-    lead        Lead           @relation(fields: [leadId], references: [id])
-    amount      Decimal        @db.Decimal(15, 2)
-    status      ProposalStatus @default(DRAFT)
+    lead        Lead            @relation(fields: [leadId], references: [id])
+    amount      Decimal         @db.Decimal(15, 2)
+    status      QuotationStatus @default(DRAFT)
 
     contracts Contract[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+
+    @@index([leadId])
+    @@index([status])
+    @@index([createdAt])
 }
 
 // ==========================================

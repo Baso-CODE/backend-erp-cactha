@@ -1,6 +1,7 @@
-import { Role } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import * as argon2 from "argon2";
 import { injectable } from "tsyringe";
+
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateUserDTO } from "./dto/create-user.dto";
 import { QueryUserDTO } from "./dto/query-user.dto";
@@ -15,11 +16,15 @@ export class RbacService {
   // ==========================================
 
   async getAllUsers(query: QueryUserDTO) {
-    const { role, isActive, search, page = 1, limit = 10 } = query;
+    const { roleId, isActive, search, page = 1, limit = 10 } = query;
     const skip = (page - 1) * limit;
 
-    const where = {
-      ...(role && { role }),
+    const where: Prisma.UserWhereInput = {
+      ...(roleId && {
+        roles: {
+          some: { roleId },
+        },
+      }),
       ...(isActive !== undefined && { isActive }),
       ...(search && {
         OR: [{ name: { contains: search } }, { email: { contains: search } }],
@@ -35,11 +40,20 @@ export class RbacService {
           id: true,
           email: true,
           name: true,
-          role: true,
           isActive: true,
           createdAt: true,
           updatedAt: true,
-          // Jangan expose password
+          roles: {
+            select: {
+              role: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -64,11 +78,21 @@ export class RbacService {
         id: true,
         email: true,
         name: true,
-        role: true,
         isActive: true,
         createdAt: true,
         updatedAt: true,
-        // Relasi summary (opsional)
+        roles: {
+          select: {
+            role: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                description: true,
+              },
+            },
+          },
+        },
         _count: {
           select: {
             leadsManaged: true,
@@ -88,7 +112,6 @@ export class RbacService {
   }
 
   async createUser(data: CreateUserDTO, actorId: string) {
-    // 1. Cek apakah email sudah digunakan
     const existing = await this.prisma.user.findUnique({
       where: { email: data.email },
     });
@@ -97,26 +120,44 @@ export class RbacService {
       throw new Error("Email sudah terdaftar. Gunakan email lain.");
     }
 
-    // 2. Hash password
+    const roleIds = [...new Set(data.roleIds)];
+
+    await this.validateRoleIds(roleIds);
+
     const hashedPassword = await argon2.hash(data.password);
 
-    // 3. Buat user baru + catat audit log dalam satu transaksi
-    const newUser = await this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const created = await tx.user.create({
         data: {
           email: data.email,
           name: data.name,
           password: hashedPassword,
-          role: data.role,
           isActive: data.isActive ?? true,
+          roles: {
+            create: roleIds.map((roleId) => ({
+              role: {
+                connect: { id: roleId },
+              },
+            })),
+          },
         },
         select: {
           id: true,
           email: true,
           name: true,
-          role: true,
           isActive: true,
           createdAt: true,
+          roles: {
+            select: {
+              role: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -129,56 +170,97 @@ export class RbacService {
           details: {
             name: created.name,
             email: created.email,
-            role: created.role,
+            isActive: created.isActive,
+            roles: created.roles.map(({ role }) => ({
+              id: role.id,
+              code: role.code,
+              name: role.name,
+            })),
           },
         },
       });
 
       return created;
     });
-
-    return newUser;
   }
 
   async updateUser(id: string, data: UpdateUserDTO, actorId: string) {
-    // 1. Pastikan user yang akan diupdate ada
-    const existing = await this.prisma.user.findUnique({ where: { id } });
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
     if (!existing) {
       throw new Error("User tidak ditemukan.");
     }
 
-    // 2. Cek konflik email jika email diubah
     if (data.email && data.email !== existing.email) {
       const emailConflict = await this.prisma.user.findUnique({
         where: { email: data.email },
       });
+
       if (emailConflict) {
         throw new Error("Email sudah digunakan oleh user lain.");
       }
     }
 
-    // 3. Hash password baru jika ada
-    const updatePayload: Record<string, unknown> = { ...data };
-    if (data.password) {
-      updatePayload.password = await argon2.hash(data.password);
+    let roleIds: string[] | undefined;
+
+    if (data.roleIds) {
+      roleIds = [...new Set(data.roleIds)];
+      await this.validateRoleIds(roleIds);
     }
 
-    // 4. Update user + audit log dalam satu transaksi
-    const updatedUser = await this.prisma.$transaction(async (tx) => {
+    const hashedPassword = data.password
+      ? await argon2.hash(data.password)
+      : undefined;
+
+    return this.prisma.$transaction(async (tx) => {
       const updated = await tx.user.update({
         where: { id },
-        data: updatePayload,
+        data: {
+          ...(data.email !== undefined && { email: data.email }),
+          ...(data.name !== undefined && { name: data.name }),
+          ...(hashedPassword !== undefined && { password: hashedPassword }),
+          ...(data.isActive !== undefined && { isActive: data.isActive }),
+
+          ...(roleIds !== undefined && {
+            roles: {
+              deleteMany: {},
+              create: roleIds.map((roleId) => ({
+                role: {
+                  connect: { id: roleId },
+                },
+              })),
+            },
+          }),
+        },
         select: {
           id: true,
           email: true,
           name: true,
-          role: true,
           isActive: true,
           updatedAt: true,
+          roles: {
+            select: {
+              role: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
       });
 
-      // Catat perubahan (before vs after)
       await tx.auditLog.create({
         data: {
           userId: actorId,
@@ -189,14 +271,22 @@ export class RbacService {
             before: {
               name: existing.name,
               email: existing.email,
-              role: existing.role,
               isActive: existing.isActive,
+              roles: existing.roles.map(({ role }) => ({
+                id: role.id,
+                code: role.code,
+                name: role.name,
+              })),
             },
             after: {
               name: updated.name,
               email: updated.email,
-              role: updated.role,
               isActive: updated.isActive,
+              roles: updated.roles.map(({ role }) => ({
+                id: role.id,
+                code: role.code,
+                name: role.name,
+              })),
             },
           },
         },
@@ -204,23 +294,32 @@ export class RbacService {
 
       return updated;
     });
-
-    return updatedUser;
   }
 
   async deleteUser(id: string, actorId: string) {
-    const existing = await this.prisma.user.findUnique({ where: { id } });
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        roles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
     if (!existing) {
       throw new Error("User tidak ditemukan.");
     }
 
-    // Cegah user menghapus dirinya sendiri
     if (id === actorId) {
       throw new Error("Anda tidak dapat menghapus akun Anda sendiri.");
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.user.delete({ where: { id } });
+      await tx.user.delete({
+        where: { id },
+      });
 
       await tx.auditLog.create({
         data: {
@@ -231,17 +330,26 @@ export class RbacService {
           details: {
             name: existing.name,
             email: existing.email,
-            role: existing.role,
+            roles: existing.roles.map(({ role }) => ({
+              id: role.id,
+              code: role.code,
+              name: role.name,
+            })),
           },
         },
       });
     });
 
-    return { message: `User "${existing.name}" berhasil dihapus.` };
+    return {
+      message: `User "${existing.name}" berhasil dihapus.`,
+    };
   }
 
   async toggleUserStatus(id: string, actorId: string) {
-    const existing = await this.prisma.user.findUnique({ where: { id } });
+    const existing = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
     if (!existing) {
       throw new Error("User tidak ditemukan.");
     }
@@ -255,13 +363,25 @@ export class RbacService {
     const updated = await this.prisma.$transaction(async (tx) => {
       const result = await tx.user.update({
         where: { id },
-        data: { isActive: newStatus },
+        data: {
+          isActive: newStatus,
+        },
         select: {
           id: true,
           name: true,
           email: true,
-          role: true,
           isActive: true,
+          roles: {
+            select: {
+              role: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -271,7 +391,10 @@ export class RbacService {
           action: newStatus ? "ACTIVATE" : "DEACTIVATE",
           entity: "User",
           entityId: id,
-          details: { previousStatus: existing.isActive, newStatus },
+          details: {
+            previousStatus: existing.isActive,
+            newStatus,
+          },
         },
       });
 
@@ -279,9 +402,33 @@ export class RbacService {
     });
 
     return {
-      message: `User "${updated.name}" berhasil ${newStatus ? "diaktifkan" : "dinonaktifkan"}.`,
+      message: `User "${updated.name}" berhasil ${
+        newStatus ? "diaktifkan" : "dinonaktifkan"
+      }.`,
       data: updated,
     };
+  }
+
+  // ==========================================
+  // ROLE MANAGEMENT
+  // ==========================================
+
+  async getRoles() {
+    return this.prisma.role.findMany({
+      where: {
+        isActive: true,
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        isSystem: true,
+      },
+      orderBy: {
+        name: "asc",
+      },
+    });
   }
 
   // ==========================================
@@ -297,9 +444,10 @@ export class RbacService {
     limit?: number;
   }) {
     const { entity, entityId, userId, action, page = 1, limit = 20 } = filters;
+
     const skip = (page - 1) * limit;
 
-    const where = {
+    const where: Prisma.AuditLogWhereInput = {
       ...(entity && { entity }),
       ...(entityId && { entityId }),
       ...(userId && { userId }),
@@ -311,10 +459,27 @@ export class RbacService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: "desc" },
+        orderBy: {
+          createdAt: "desc",
+        },
         include: {
           user: {
-            select: { id: true, name: true, email: true, role: true },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              roles: {
+                select: {
+                  role: {
+                    select: {
+                      id: true,
+                      code: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       }),
@@ -323,7 +488,12 @@ export class RbacService {
 
     return {
       data: logs,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
@@ -331,16 +501,19 @@ export class RbacService {
   // DASHBOARD & PERFORMANCE METRICS
   // ==========================================
 
-  // 1. Method untuk 4 Kartu Metrik di atas
   async getUserMetrics() {
-    const totalUsers = await this.prisma.user.count();
-    const activeUsers = await this.prisma.user.count({
-      where: { isActive: true },
-    });
+    const [totalUsers, activeUsers] = await this.prisma.$transaction([
+      this.prisma.user.count(),
+      this.prisma.user.count({
+        where: {
+          isActive: true,
+        },
+      }),
+    ]);
+
     const inactiveUsers = totalUsers - activeUsers;
 
-    // Asumsi: Jika Anda punya tabel Task/Project, hitung efisiensi dari sana.
-    // Sementara kita mock nilai persentase agar sesuai UI.
+    // TODO: Ganti dengan perhitungan dari Task / Project.
     const averageEfficiency = 91.4;
 
     return {
@@ -351,13 +524,10 @@ export class RbacService {
     };
   }
 
-  // 2. Method untuk Area Chart (Grafik Performa)
   async getTeamPerformance(period: "7days" | "30days" | "3months" = "7days") {
-    // Nantinya ini query ke tabel Task (di mana status = 'COMPLETED')
-    // yang di-group by tanggal (createdAt/updatedAt).
-    // Untuk tahap ini, kita kembalikan struktur yang siap dibaca Recharts:
+    // TODO: Nantinya dihitung dari Task / Project berdasarkan period.
+    void period;
 
-    // Contoh implementasi data dinamis (Mock untuk saat ini):
     return [
       { date: "Jun 24", performance: 40 },
       { date: "Jun 25", performance: 30 },
@@ -370,9 +540,26 @@ export class RbacService {
   }
 
   // ==========================================
-  // HELPER: Daftar semua nilai Role yang valid
+  // PRIVATE HELPERS
   // ==========================================
-  getRoles(): string[] {
-    return Object.values(Role);
+
+  private async validateRoleIds(roleIds: string[]): Promise<void> {
+    const roles = await this.prisma.role.findMany({
+      where: {
+        id: {
+          in: roleIds,
+        },
+        isActive: true,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (roles.length !== roleIds.length) {
+      throw new Error(
+        "Satu atau lebih role tidak valid atau sudah tidak aktif.",
+      );
+    }
   }
 }

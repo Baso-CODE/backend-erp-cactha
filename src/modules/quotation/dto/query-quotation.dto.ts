@@ -1,8 +1,9 @@
-// query-user.dto.ts
+// dto/query-quotation.dto.ts
 
+import { QuotationStatus } from "@prisma/client";
 import { Transform } from "class-transformer";
 import {
-  IsBoolean,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -11,19 +12,14 @@ import {
   Min,
 } from "class-validator";
 
-export class QueryUserDTO {
-  @IsUUID("4", { message: "Role ID tidak valid" })
+export class QueryQuotationDTO {
+  @IsUUID("4", { message: "Lead ID tidak valid" })
   @IsOptional()
-  roleId?: string;
+  leadId?: string;
 
-  @IsBoolean()
+  @IsEnum(QuotationStatus, { message: "Status quotation tidak valid" })
   @IsOptional()
-  @Transform(({ value }) => {
-    if (value === "true") return true;
-    if (value === "false") return false;
-    return value;
-  })
-  isActive?: boolean;
+  status?: QuotationStatus;
 
   @IsString()
   @IsOptional()

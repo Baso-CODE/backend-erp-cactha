@@ -9,7 +9,11 @@ import { env } from "./config";
 
 import { errorMiddleware } from "./middleware/error.middleware";
 import { globalLimiter } from "./middleware/rateLimiter.middleware";
+import { ActivityRouter } from "./modules/activity/activity.router";
 import { AuthRouter } from "./modules/auth/auth.router";
+import { LeadRouter } from "./modules/lead/lead.router";
+import { ProposalRouter } from "./modules/proposal/proposal.router";
+import { QuotationRouter } from "./modules/quotation/quotation.router";
 import { RbacRouter } from "./modules/rbac/rbac.router";
 
 export default class App {
@@ -29,7 +33,7 @@ export default class App {
     this.app.use(
       cors({
         origin: process.env.FRONTEND_URL || "http://localhost:3000",
-        credentials: true, // Wajib agar browser bisa menerima & mengirim HTTP-Only Cookie
+        credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowedHeaders: [
           "Content-Type",
@@ -50,12 +54,20 @@ export default class App {
   private routes(): void {
     const rbacRouter = container.resolve(RbacRouter);
     const authRouter = container.resolve(AuthRouter);
+    const leadRouter = container.resolve(LeadRouter);
+    const activityRouter = container.resolve(ActivityRouter);
+    const proposalRouter = container.resolve(ProposalRouter);
+    const quotationRouter = container.resolve(QuotationRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
     });
     this.app.use("/rbac", rbacRouter.getRouter());
     this.app.use("/auth", authRouter.getRouter());
+    this.app.use("/leads", leadRouter.getRouter());
+    this.app.use("/activities", activityRouter.getRouter());
+    this.app.use("/proposals", proposalRouter.getRouter());
+    this.app.use("/quotations", quotationRouter.getRouter());
   }
 
   private handleError(): void {

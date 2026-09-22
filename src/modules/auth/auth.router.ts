@@ -1,5 +1,9 @@
+// auth.router.ts
+
 import { Router } from "express";
 import { injectable } from "tsyringe";
+
+import { authenticateToken } from "../../middleware/auth.middleware";
 import { validateBody } from "../../middleware/validateBody.middleware";
 import { AuthController } from "./auth.controller";
 import { LoginDTO } from "./dto/login.dto";
@@ -13,15 +17,15 @@ export class AuthRouter {
   }
 
   private initializeRoutes = (): void => {
-    // Endpoint Login Publik
     this.router.post(
       "/login",
       validateBody(LoginDTO),
       this.authController.login,
     );
 
-    // Endpoint Logout (Baru)
-    this.router.post("/logout", this.authController.logout);
+    this.router.get("/me", authenticateToken, this.authController.me);
+
+    this.router.post("/logout", authenticateToken, this.authController.logout);
   };
 
   getRouter(): Router {

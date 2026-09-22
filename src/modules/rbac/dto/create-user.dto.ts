@@ -1,11 +1,14 @@
-import { Role } from "@prisma/client";
+// create-user.dto.ts
+
 import {
+  ArrayMinSize,
+  IsArray,
   IsBoolean,
   IsEmail,
-  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MinLength,
 } from "class-validator";
 
@@ -23,9 +26,10 @@ export class CreateUserDTO {
   @IsNotEmpty({ message: "Password wajib diisi" })
   password!: string;
 
-  @IsEnum(Role, { message: "Role tidak valid" })
-  @IsNotEmpty({ message: "Role wajib diisi" })
-  role!: Role;
+  @IsArray()
+  @ArrayMinSize(1, { message: "Minimal satu role wajib dipilih" })
+  @IsUUID("4", { each: true, message: "Role ID tidak valid" })
+  roleIds!: string[];
 
   @IsBoolean()
   @IsOptional()

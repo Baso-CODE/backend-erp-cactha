@@ -15,17 +15,19 @@ export class PrismaService extends PrismaClient {
     const adapter = new PrismaMariaDb(connectionString);
 
     super({
-      adapter: adapter,
+      adapter,
       log: ["query", "info", "warn", "error"],
     });
 
     this.setupShutdownHandler();
   }
 
-  private setupShutdownHandler() {
-    const gracefulShutdown = async (signal: string) => {
+  private setupShutdownHandler(): void {
+    const gracefulShutdown = async (signal: string): Promise<void> => {
       console.log(`\nReceived ${signal}. Disconnecting Prisma...`);
+
       await this.$disconnect();
+
       process.exit(0);
     };
 
