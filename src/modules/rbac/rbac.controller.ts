@@ -1,3 +1,5 @@
+import { plainToInstance } from "class-transformer";
+import { validateOrReject } from "class-validator";
 import { NextFunction, Request, Response } from "express";
 import { injectable } from "tsyringe";
 import { QueryUserDTO } from "./dto/query-user.dto";
@@ -17,7 +19,10 @@ export class RbacController {
    */
   getAllUsers = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const query = req.query as unknown as QueryUserDTO;
+      const query = plainToInstance(QueryUserDTO, req.query);
+
+      await validateOrReject(query);
+
       const result = await this.rbacService.getAllUsers(query);
 
       res.status(200).json({
@@ -28,7 +33,6 @@ export class RbacController {
       next(error);
     }
   };
-
   /**
    * GET /rbac/users/:id
    * Ambil detail satu user beserta jumlah entitas yang dikelola
@@ -186,10 +190,18 @@ export class RbacController {
    * GET /rbac/roles
    * Kembalikan daftar semua Role yang tersedia di sistem
    */
-  getRoles = async (_req: Request, res: Response, next: NextFunction) => {
+  getRoles = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
     try {
-      const roles = this.rbacService.getRoles();
-      res.status(200).json({ success: true, data: roles });
+      const roles = await this.rbacService.getRoles();
+
+      res.status(200).json({
+        success: true,
+        data: roles,
+      });
     } catch (error) {
       next(error);
     }

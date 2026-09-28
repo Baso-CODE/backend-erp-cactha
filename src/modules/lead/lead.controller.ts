@@ -1,6 +1,10 @@
+import { plainToInstance } from "class-transformer";
+import { validateOrReject } from "class-validator";
 import { NextFunction, Request, Response } from "express";
 import { injectable } from "tsyringe";
+
 import { getStringParam } from "../../helpers/request.helper";
+import { QueryLeadDTO } from "./dto/query-lead.dto";
 import { LeadService } from "./lead.service";
 
 @injectable()
@@ -15,10 +19,11 @@ export class LeadController {
     try {
       const user = (req as any).user;
 
-      const result = await this.leadService.getAllLeads(
-        req.query as any,
-        user.id,
-      );
+      const query = plainToInstance(QueryLeadDTO, req.query);
+
+      await validateOrReject(query);
+
+      const result = await this.leadService.getAllLeads(query, user.id);
 
       res.status(200).json({
         success: true,
