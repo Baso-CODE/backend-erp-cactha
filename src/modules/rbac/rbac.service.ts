@@ -440,10 +440,19 @@ export class RbacService {
     entityId?: string;
     userId?: string;
     action?: string;
+    search?: string;
     page?: number;
     limit?: number;
   }) {
-    const { entity, entityId, userId, action, page = 1, limit = 20 } = filters;
+    const {
+      entity,
+      entityId,
+      userId,
+      action,
+      search,
+      page = 1,
+      limit = 20,
+    } = filters;
 
     const skip = (page - 1) * limit;
 
@@ -452,6 +461,43 @@ export class RbacService {
       ...(entityId && { entityId }),
       ...(userId && { userId }),
       ...(action && { action }),
+      ...(search && {
+        OR: [
+          {
+            action: {
+              contains: search,
+            },
+          },
+          {
+            entity: {
+              contains: search,
+            },
+          },
+          {
+            entityId: {
+              contains: search,
+            },
+          },
+          {
+            user: {
+              is: {
+                OR: [
+                  {
+                    name: {
+                      contains: search,
+                    },
+                  },
+                  {
+                    email: {
+                      contains: search,
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      }),
     };
 
     const [logs, total] = await this.prisma.$transaction([
@@ -483,7 +529,10 @@ export class RbacService {
           },
         },
       }),
-      this.prisma.auditLog.count({ where }),
+
+      this.prisma.auditLog.count({
+        where,
+      }),
     ]);
 
     return {
@@ -496,7 +545,6 @@ export class RbacService {
       },
     };
   }
-
   // ==========================================
   // DASHBOARD & PERFORMANCE METRICS
   // ==========================================

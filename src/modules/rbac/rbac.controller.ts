@@ -165,18 +165,23 @@ export class RbacController {
    */
   getAuditLogs = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { entity, entityId, userId, action, page, limit } = req.query;
+      const { entity, entityId, userId, action, search, page, limit } =
+        req.query;
 
       const result = await this.rbacService.getAuditLogs({
         entity: entity as string | undefined,
         entityId: entityId as string | undefined,
         userId: userId as string | undefined,
         action: action as string | undefined,
+        search: search as string | undefined,
         page: page ? parseInt(page as string, 10) : undefined,
         limit: limit ? parseInt(limit as string, 10) : undefined,
       });
 
-      res.status(200).json({ success: true, ...result });
+      res.status(200).json({
+        success: true,
+        ...result,
+      });
     } catch (error) {
       next(error);
     }

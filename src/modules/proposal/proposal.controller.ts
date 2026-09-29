@@ -3,7 +3,10 @@
 import { NextFunction, Request, Response } from "express";
 import { injectable } from "tsyringe";
 
+import { plainToInstance } from "class-transformer";
+import { validateOrReject } from "class-validator";
 import { getStringParam } from "../../helpers/request.helper";
+import { QueryProposalDTO } from "./dto/query-proposal.dto";
 import { ProposalService } from "./proposal.service";
 
 @injectable()
@@ -18,10 +21,11 @@ export class ProposalController {
     try {
       const user = (req as any).user;
 
-      const result = await this.proposalService.getAllProposals(
-        req.query as any,
-        user.id,
-      );
+      const query = plainToInstance(QueryProposalDTO, req.query);
+
+      await validateOrReject(query);
+
+      const result = await this.proposalService.getAllProposals(query, user.id);
 
       res.status(200).json({
         success: true,

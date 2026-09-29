@@ -1,10 +1,13 @@
 // activity.controller.ts
 
+import { plainToInstance } from "class-transformer";
+import { validateOrReject } from "class-validator";
 import { NextFunction, Request, Response } from "express";
 import { injectable } from "tsyringe";
 
 import { getStringParam } from "../../helpers/request.helper";
 import { ActivityService } from "./activity.service";
+import { QueryActivityDTO } from "./dto/query-activity.dto";
 
 @injectable()
 export class ActivityController {
@@ -18,8 +21,12 @@ export class ActivityController {
     try {
       const user = (req as any).user;
 
+      const query = plainToInstance(QueryActivityDTO, req.query);
+
+      await validateOrReject(query);
+
       const result = await this.activityService.getAllActivities(
-        req.query as any,
+        query,
         user.id,
       );
 
