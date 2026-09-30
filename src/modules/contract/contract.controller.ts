@@ -1,30 +1,30 @@
 import { NextFunction, Request, Response } from "express";
 import { injectable } from "tsyringe";
+
 import { getStringParam } from "../../helpers/request.helper";
-import { QueryQuotationDTO } from "./dto/query-quotation.dto";
-import { QuotationService } from "./quotation.service";
+import { ContractService } from "./contract.service";
+import { CreateContractDTO } from "./dto/create-contract.dto";
+import { QueryContractDTO } from "./dto/query-contract.dto";
+import { UpdateContractDTO } from "./dto/update-contract.dto";
 
 @injectable()
-export class QuotationController {
-  constructor(private readonly quotationService: QuotationService) {}
+export class ContractController {
+  constructor(private readonly contractService: ContractService) {}
 
-  getAllQuotations = async (
+  getAllContracts = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
       const user = (req as any).user;
-      const query = (req as any).validatedQuery as QueryQuotationDTO;
+      const query = (req as any).validatedQuery as QueryContractDTO;
 
-      const result = await this.quotationService.getAllQuotations(
-        query,
-        user.id,
-      );
+      const result = await this.contractService.getAllContracts(query, user.id);
 
       res.status(200).json({
         success: true,
-        message: "Daftar quotation berhasil diambil.",
+        message: "Daftar contract berhasil diambil.",
         ...result,
       });
     } catch (error) {
@@ -32,87 +32,83 @@ export class QuotationController {
     }
   };
 
-  getQuotationById = async (
+  getContractById = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const user = (req as any).user;
       const id = getStringParam(req.params.id);
+      const user = (req as any).user;
 
-      const quotation = await this.quotationService.getQuotationById(
-        id,
-        user.id,
-      );
+      const contract = await this.contractService.getContractById(id, user.id);
 
       res.status(200).json({
         success: true,
-        data: quotation,
+        data: contract,
       });
     } catch (error) {
       next(error);
     }
   };
 
-  createQuotation = async (
+  createContract = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
       const user = (req as any).user;
+      const data = req.body as CreateContractDTO;
 
-      const quotation = await this.quotationService.createQuotation(
-        req.body,
-        user.id,
-      );
+      const contract = await this.contractService.createContract(data, user.id);
 
       res.status(201).json({
         success: true,
-        message: "Quotation berhasil dibuat.",
-        data: quotation,
+        message: "Contract berhasil dibuat.",
+        data: contract,
       });
     } catch (error) {
       next(error);
     }
   };
 
-  updateQuotation = async (
+  updateContract = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const user = (req as any).user;
       const id = getStringParam(req.params.id);
+      const user = (req as any).user;
+      const data = req.body as UpdateContractDTO;
 
-      const quotation = await this.quotationService.updateQuotation(
+      const contract = await this.contractService.updateContract(
         id,
-        req.body,
+        data,
         user.id,
       );
 
       res.status(200).json({
         success: true,
-        message: "Quotation berhasil diperbarui.",
-        data: quotation,
+        message: "Contract berhasil diperbarui.",
+        data: contract,
       });
     } catch (error) {
       next(error);
     }
   };
 
-  deleteQuotation = async (
+  deleteContract = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const user = (req as any).user;
       const id = getStringParam(req.params.id);
+      const user = (req as any).user;
 
-      const result = await this.quotationService.deleteQuotation(id, user.id);
+      const result = await this.contractService.deleteContract(id, user.id);
 
       res.status(200).json({
         success: true,

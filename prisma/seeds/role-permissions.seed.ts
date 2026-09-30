@@ -49,6 +49,25 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "crm.quotation.create", scope: AccessScope.ALL },
     { permission: "crm.quotation.update", scope: AccessScope.ALL },
     { permission: "crm.quotation.delete", scope: AccessScope.ALL },
+
+    // CLIENT
+    { permission: "client.read", scope: AccessScope.ALL },
+    { permission: "client.create", scope: AccessScope.ALL },
+    { permission: "client.update", scope: AccessScope.ALL },
+    { permission: "client.delete", scope: AccessScope.ALL },
+    { permission: "client.assign", scope: AccessScope.ALL },
+
+    // CLIENT - CONTACT PERSON
+    { permission: "client.contact.read", scope: AccessScope.ALL },
+    { permission: "client.contact.create", scope: AccessScope.ALL },
+    { permission: "client.contact.update", scope: AccessScope.ALL },
+    { permission: "client.contact.delete", scope: AccessScope.ALL },
+
+    // CONTRACT
+    { permission: "contract.read", scope: AccessScope.ALL },
+    { permission: "contract.create", scope: AccessScope.ALL },
+    { permission: "contract.update", scope: AccessScope.ALL },
+    { permission: "contract.delete", scope: AccessScope.ALL },
   ],
 
   ADMIN: [
@@ -81,6 +100,23 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "crm.quotation.read", scope: AccessScope.ALL },
     { permission: "crm.quotation.create", scope: AccessScope.ALL },
     { permission: "crm.quotation.update", scope: AccessScope.ALL },
+
+    // CLIENT
+    { permission: "client.read", scope: AccessScope.ALL },
+    { permission: "client.create", scope: AccessScope.ALL },
+    { permission: "client.update", scope: AccessScope.ALL },
+    { permission: "client.assign", scope: AccessScope.ALL },
+
+    // CLIENT - CONTACT PERSON
+    { permission: "client.contact.read", scope: AccessScope.ALL },
+    { permission: "client.contact.create", scope: AccessScope.ALL },
+    { permission: "client.contact.update", scope: AccessScope.ALL },
+    { permission: "client.contact.delete", scope: AccessScope.ALL },
+
+    // CONTRACT
+    { permission: "contract.read", scope: AccessScope.ALL },
+    { permission: "contract.create", scope: AccessScope.ALL },
+    { permission: "contract.update", scope: AccessScope.ALL },
   ],
 
   SALES_MANAGER: [
@@ -107,6 +143,9 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "crm.quotation.create", scope: AccessScope.ALL },
     { permission: "crm.quotation.update", scope: AccessScope.ALL },
     { permission: "crm.quotation.delete", scope: AccessScope.ALL },
+
+    { permission: "client.read", scope: AccessScope.ALL },
+    { permission: "client.contact.read", scope: AccessScope.ALL },
   ],
 
   SALES_EXECUTIVE: [
@@ -129,15 +168,42 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "crm.quotation.read", scope: AccessScope.OWN },
     { permission: "crm.quotation.create", scope: AccessScope.OWN },
     { permission: "crm.quotation.update", scope: AccessScope.OWN },
+
+    { permission: "client.read", scope: AccessScope.OWN },
+    { permission: "client.contact.read", scope: AccessScope.OWN },
   ],
 
-  ACCOUNT_MANAGER: [],
-  PROJECT_MANAGER: [],
+  ACCOUNT_MANAGER: [
+    // CLIENT
+    { permission: "client.read", scope: AccessScope.OWN },
+    { permission: "client.create", scope: AccessScope.OWN },
+    { permission: "client.update", scope: AccessScope.OWN },
+
+    // CLIENT - CONTACT PERSON
+    { permission: "client.contact.read", scope: AccessScope.OWN },
+    { permission: "client.contact.create", scope: AccessScope.OWN },
+    { permission: "client.contact.update", scope: AccessScope.OWN },
+    { permission: "client.contact.delete", scope: AccessScope.OWN },
+
+    // CONTRACT
+    { permission: "contract.read", scope: AccessScope.OWN },
+    { permission: "contract.create", scope: AccessScope.OWN },
+    { permission: "contract.update", scope: AccessScope.OWN },
+  ],
+  PROJECT_MANAGER: [
+    { permission: "client.read", scope: AccessScope.ALL },
+    { permission: "client.contact.read", scope: AccessScope.ALL },
+    { permission: "contract.read", scope: AccessScope.ALL },
+  ],
   SPECIALIST: [],
   DESIGNER: [],
   EDITOR: [],
   TALENT: [],
-  FINANCE: [],
+  FINANCE: [
+    { permission: "client.read", scope: AccessScope.ALL },
+    { permission: "client.contact.read", scope: AccessScope.ALL },
+    { permission: "contract.read", scope: AccessScope.ALL },
+  ],
   CLIENT: [],
 };
 

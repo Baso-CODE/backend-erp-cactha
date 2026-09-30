@@ -209,6 +209,99 @@ export async function seedPermissions(prisma: PrismaClient) {
       action: "delete",
       description: "Menghapus quotation",
     },
+
+    // ==========================================
+    // CLIENT
+    // ==========================================
+
+    {
+      code: "client.read",
+      module: "client",
+      action: "read",
+      description: "Melihat data client",
+    },
+    {
+      code: "client.create",
+      module: "client",
+      action: "create",
+      description: "Membuat client",
+    },
+    {
+      code: "client.update",
+      module: "client",
+      action: "update",
+      description: "Mengubah client",
+    },
+    {
+      code: "client.delete",
+      module: "client",
+      action: "delete",
+      description: "Menghapus client",
+    },
+    {
+      code: "client.assign",
+      module: "client",
+      action: "assign",
+      description: "Assign account manager ke client",
+    },
+
+    // ==========================================
+    // CLIENT - CONTACT PERSON
+    // ==========================================
+
+    {
+      code: "client.contact.read",
+      module: "client",
+      action: "read",
+      description: "Melihat contact person client",
+    },
+    {
+      code: "client.contact.create",
+      module: "client",
+      action: "create",
+      description: "Membuat contact person client",
+    },
+    {
+      code: "client.contact.update",
+      module: "client",
+      action: "update",
+      description: "Mengubah contact person client",
+    },
+    {
+      code: "client.contact.delete",
+      module: "client",
+      action: "delete",
+      description: "Menghapus contact person client",
+    },
+
+    // ==========================================
+    // CONTRACT
+    // ==========================================
+
+    {
+      code: "contract.read",
+      module: "contract",
+      action: "read",
+      description: "Melihat data contract",
+    },
+    {
+      code: "contract.create",
+      module: "contract",
+      action: "create",
+      description: "Membuat contract",
+    },
+    {
+      code: "contract.update",
+      module: "contract",
+      action: "update",
+      description: "Mengubah contract",
+    },
+    {
+      code: "contract.delete",
+      module: "contract",
+      action: "delete",
+      description: "Menghapus contract",
+    },
   ];
 
   for (const permission of permissions) {

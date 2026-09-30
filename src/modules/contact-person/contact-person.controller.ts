@@ -1,30 +1,33 @@
 import { NextFunction, Request, Response } from "express";
 import { injectable } from "tsyringe";
+
 import { getStringParam } from "../../helpers/request.helper";
-import { QueryQuotationDTO } from "./dto/query-quotation.dto";
-import { QuotationService } from "./quotation.service";
+import { ContactPersonService } from "./contact-person.service";
+import { CreateContactPersonDTO } from "./dto/create-contact-person.dto";
+import { QueryContactPersonDTO } from "./dto/query-contact-person.dto";
+import { UpdateContactPersonDTO } from "./dto/update-contact-person.dto";
 
 @injectable()
-export class QuotationController {
-  constructor(private readonly quotationService: QuotationService) {}
+export class ContactPersonController {
+  constructor(private readonly contactPersonService: ContactPersonService) {}
 
-  getAllQuotations = async (
+  getAllContactPersons = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
       const user = (req as any).user;
-      const query = (req as any).validatedQuery as QueryQuotationDTO;
+      const query = (req as any).validatedQuery as QueryContactPersonDTO;
 
-      const result = await this.quotationService.getAllQuotations(
+      const result = await this.contactPersonService.getAllContactPersons(
         query,
         user.id,
       );
 
       res.status(200).json({
         success: true,
-        message: "Daftar quotation berhasil diambil.",
+        message: "Daftar contact person berhasil diambil.",
         ...result,
       });
     } catch (error) {
@@ -32,87 +35,92 @@ export class QuotationController {
     }
   };
 
-  getQuotationById = async (
+  getContactPersonById = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const user = (req as any).user;
       const id = getStringParam(req.params.id);
+      const user = (req as any).user;
 
-      const quotation = await this.quotationService.getQuotationById(
+      const contact = await this.contactPersonService.getContactPersonById(
         id,
         user.id,
       );
 
       res.status(200).json({
         success: true,
-        data: quotation,
+        data: contact,
       });
     } catch (error) {
       next(error);
     }
   };
 
-  createQuotation = async (
+  createContactPerson = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
       const user = (req as any).user;
+      const data = req.body as CreateContactPersonDTO;
 
-      const quotation = await this.quotationService.createQuotation(
-        req.body,
+      const contact = await this.contactPersonService.createContactPerson(
+        data,
         user.id,
       );
 
       res.status(201).json({
         success: true,
-        message: "Quotation berhasil dibuat.",
-        data: quotation,
+        message: "Contact person berhasil dibuat.",
+        data: contact,
       });
     } catch (error) {
       next(error);
     }
   };
 
-  updateQuotation = async (
+  updateContactPerson = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const user = (req as any).user;
       const id = getStringParam(req.params.id);
+      const user = (req as any).user;
+      const data = req.body as UpdateContactPersonDTO;
 
-      const quotation = await this.quotationService.updateQuotation(
+      const contact = await this.contactPersonService.updateContactPerson(
         id,
-        req.body,
+        data,
         user.id,
       );
 
       res.status(200).json({
         success: true,
-        message: "Quotation berhasil diperbarui.",
-        data: quotation,
+        message: "Contact person berhasil diperbarui.",
+        data: contact,
       });
     } catch (error) {
       next(error);
     }
   };
 
-  deleteQuotation = async (
+  deleteContactPerson = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const user = (req as any).user;
       const id = getStringParam(req.params.id);
+      const user = (req as any).user;
 
-      const result = await this.quotationService.deleteQuotation(id, user.id);
+      const result = await this.contactPersonService.deleteContactPerson(
+        id,
+        user.id,
+      );
 
       res.status(200).json({
         success: true,

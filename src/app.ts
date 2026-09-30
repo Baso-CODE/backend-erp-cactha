@@ -11,6 +11,9 @@ import { errorMiddleware } from "./middleware/error.middleware";
 import { globalLimiter } from "./middleware/rateLimiter.middleware";
 import { ActivityRouter } from "./modules/activity/activity.router";
 import { AuthRouter } from "./modules/auth/auth.router";
+import { ClientRouter } from "./modules/client/client.route";
+import { ContactPersonRouter } from "./modules/contact-person/contact-person.route";
+import { ContractRouter } from "./modules/contract/contract.route";
 import { LeadRouter } from "./modules/lead/lead.router";
 import { ProposalRouter } from "./modules/proposal/proposal.router";
 import { QuotationRouter } from "./modules/quotation/quotation.router";
@@ -58,6 +61,9 @@ export default class App {
     const activityRouter = container.resolve(ActivityRouter);
     const proposalRouter = container.resolve(ProposalRouter);
     const quotationRouter = container.resolve(QuotationRouter);
+    const clientRouter = container.resolve(ClientRouter);
+    const contactPersonRouter = container.resolve(ContactPersonRouter);
+    const contractRouter = container.resolve(ContractRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -68,6 +74,9 @@ export default class App {
     this.app.use("/activities", activityRouter.getRouter());
     this.app.use("/proposals", proposalRouter.getRouter());
     this.app.use("/quotations", quotationRouter.getRouter());
+    this.app.use("/clients", clientRouter.getRouter());
+    this.app.use("/contact-persons", contactPersonRouter.getRouter());
+    this.app.use("/contracts", contractRouter.getRouter());
   }
 
   private handleError(): void {

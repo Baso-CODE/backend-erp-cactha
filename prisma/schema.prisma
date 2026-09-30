@@ -173,6 +173,7 @@ model Lead {
     activities  Activity[]
     proposals   Proposal[]
     quotations  Quotation[]
+    client      Client?
     attachments Attachment[] @relation("LeadAttachments")
 
     createdAt DateTime @default(now())
@@ -292,6 +293,9 @@ model Client {
     website      String?
     address      String?      @db.Text
     status       ClientStatus @default(ACTIVE)
+
+    sourceLeadId String? @unique
+    sourceLead   Lead?   @relation(fields: [sourceLeadId], references: [id])
 
     accountManagerId String
     accountManager   User   @relation("AccountManager", fields: [accountManagerId], references: [id])
