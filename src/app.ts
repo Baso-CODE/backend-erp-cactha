@@ -16,6 +16,8 @@ import { ContactPersonRouter } from "./modules/contact-person/contact-person.rou
 import { ContractRouter } from "./modules/contract/contract.route";
 import { LeadRouter } from "./modules/lead/lead.router";
 import { MasterServiceRouter } from "./modules/master-service/master-service.router";
+import { ProjectServiceRouter } from "./modules/project-service/project-service.route";
+import { ProjectRouter } from "./modules/project/project.router";
 import { ProposalRouter } from "./modules/proposal/proposal.router";
 import { QuotationRouter } from "./modules/quotation/quotation.router";
 import { RbacRouter } from "./modules/rbac/rbac.router";
@@ -68,6 +70,8 @@ export default class App {
     const contractRouter = container.resolve(ContractRouter);
     const masterServiceRouter = container.resolve(MasterServiceRouter);
     const workflowTemplateRouter = container.resolve(WorkflowTemplateRouter);
+    const projectRouter = container.resolve(ProjectRouter);
+    const projectServiceRouter = container.resolve(ProjectServiceRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -83,6 +87,8 @@ export default class App {
     this.app.use("/contracts", contractRouter.getRouter());
     this.app.use("/master-services", masterServiceRouter.getRouter());
     this.app.use("/workflow-templates", workflowTemplateRouter.getRouter());
+    this.app.use("/projects", projectRouter.getRouter());
+    this.app.use("/project-services", projectServiceRouter.getRouter());
   }
 
   private handleError(): void {
