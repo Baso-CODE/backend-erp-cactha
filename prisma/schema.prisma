@@ -371,50 +371,72 @@ model Contract {
 // PART 4: MASTER DATA & WORKFLOW ENGINE
 // ==========================================
 
+enum WorkflowStatus {
+    RUNNING
+    PAUSED
+    COMPLETED
+    CANCELLED
+}
+
 model MasterService {
     id          String  @id @default(uuid())
     code        String  @unique
-    name        String // Google Ads, Meta Ads, SEO, Website
+    name        String
     description String?
     isActive    Boolean @default(true)
 
     workflowTemplateId String?
-    defaultTemplate    WorkflowTemplate? @relation(fields: [workflowTemplateId], references: [id])
+    defaultTemplate    WorkflowTemplate? @relation(fields: [workflowTemplateId], references: [id], onDelete: SetNull)
 
     projectServices ProjectService[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+
+    @@index([name])
+    @@index([isActive])
+    @@index([workflowTemplateId])
 }
 
 model WorkflowTemplate {
     id          String  @id @default(uuid())
     name        String
     description String?
-    steps       Json // Urutan task template (Brief -> Production -> QC)
+    steps       Json
 
     masterServices MasterService[]
     instances      WorkflowInstance[]
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+
+    @@index([name])
 }
 
 model WorkflowInstance {
-    id                 String           @id @default(uuid())
+    id String @id @default(uuid())
+
     workflowTemplateId String
     template           WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id])
 
     projectServiceId String         @unique
-    projectService   ProjectService @relation(fields: [projectServiceId], references: [id])
+    projectService   ProjectService @relation(fields: [projectServiceId], references: [id], onDelete: Cascade)
 
-    status      String // RUNNING, PAUSED, COMPLETED
-    currentStep String // Step saat ini
+    status WorkflowStatus @default(RUNNING)
 
-    tasks Task[] // Task yang digenerate oleh instance ini
+    currentStepKey String?
+    stepsSnapshot  Json
+
+    tasks Task[]
+
+    startedAt   DateTime  @default(now())
+    completedAt DateTime?
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+
+    @@index([workflowTemplateId])
+    @@index([status])
 }
 
 // ==========================================
@@ -438,11 +460,12 @@ model Project {
     id          String  @id @default(uuid())
     projectCode String  @unique
     name        String
-    projectType String // Client Project, Brainstorming, dll
+    projectType String
     description String? @db.Text
 
-    clientId   String
-    client     Client    @relation(fields: [clientId], references: [id])
+    clientId String
+    client   Client @relation(fields: [clientId], references: [id])
+
     contractId String?
     contract   Contract? @relation(fields: [contractId], references: [id])
 
@@ -461,12 +484,19 @@ model Project {
 
     createdAt DateTime @default(now())
     updatedAt DateTime @updatedAt
+
+    @@index([clientId])
+    @@index([contractId])
+    @@index([projectManagerId])
+    @@index([status])
+    @@index([createdAt])
 }
 
 model ProjectService {
-    id        String  @id @default(uuid())
+    id String @id @default(uuid())
+
     projectId String
-    project   Project @relation(fields: [projectId], references: [id])
+    project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
     masterServiceId String
     masterService   MasterService @relation(fields: [masterServiceId], references: [id])
@@ -475,6 +505,12 @@ model ProjectService {
     endDate   DateTime?
 
     workflowInstance WorkflowInstance?
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([projectId, masterServiceId])
+    @@index([masterServiceId])
 }
 
 // ==========================================
