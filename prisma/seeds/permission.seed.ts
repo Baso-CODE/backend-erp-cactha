@@ -302,6 +302,99 @@ export async function seedPermissions(prisma: PrismaClient) {
       action: "delete",
       description: "Menghapus contract",
     },
+
+    // ==========================================
+    // MASTER DATA - SERVICE
+    // ==========================================
+
+    {
+      code: "master.service.read",
+      module: "master",
+      action: "read",
+      description: "Melihat master service",
+    },
+    {
+      code: "master.service.create",
+      module: "master",
+      action: "create",
+      description: "Membuat master service",
+    },
+    {
+      code: "master.service.update",
+      module: "master",
+      action: "update",
+      description: "Mengubah master service",
+    },
+    {
+      code: "master.service.delete",
+      module: "master",
+      action: "delete",
+      description: "Menghapus master service",
+    },
+
+    // ==========================================
+    // WORKFLOW TEMPLATE
+    // ==========================================
+
+    {
+      code: "workflow.template.read",
+      module: "workflow",
+      action: "read",
+      description: "Melihat workflow template",
+    },
+    {
+      code: "workflow.template.create",
+      module: "workflow",
+      action: "create",
+      description: "Membuat workflow template",
+    },
+    {
+      code: "workflow.template.update",
+      module: "workflow",
+      action: "update",
+      description: "Mengubah workflow template",
+    },
+    {
+      code: "workflow.template.delete",
+      module: "workflow",
+      action: "delete",
+      description: "Menghapus workflow template",
+    },
+
+    // ==========================================
+    // WORKFLOW INSTANCE
+    // ==========================================
+
+    {
+      code: "workflow.instance.read",
+      module: "workflow",
+      action: "read",
+      description: "Melihat workflow instance",
+    },
+    {
+      code: "workflow.instance.create",
+      module: "workflow",
+      action: "create",
+      description: "Membuat workflow instance",
+    },
+    {
+      code: "workflow.instance.update",
+      module: "workflow",
+      action: "update",
+      description: "Mengubah workflow instance",
+    },
+    {
+      code: "workflow.instance.delete",
+      module: "workflow",
+      action: "delete",
+      description: "Menghapus workflow instance",
+    },
+    {
+      code: "workflow.instance.manage",
+      module: "workflow",
+      action: "manage",
+      description: "Mengelola status dan current step workflow instance",
+    },
   ];
 
   for (const permission of permissions) {

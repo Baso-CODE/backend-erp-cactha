@@ -68,6 +68,25 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "contract.create", scope: AccessScope.ALL },
     { permission: "contract.update", scope: AccessScope.ALL },
     { permission: "contract.delete", scope: AccessScope.ALL },
+
+    // MASTER DATA - SERVICE
+    { permission: "master.service.read", scope: AccessScope.ALL },
+    { permission: "master.service.create", scope: AccessScope.ALL },
+    { permission: "master.service.update", scope: AccessScope.ALL },
+    { permission: "master.service.delete", scope: AccessScope.ALL },
+
+    // WORKFLOW TEMPLATE
+    { permission: "workflow.template.read", scope: AccessScope.ALL },
+    { permission: "workflow.template.create", scope: AccessScope.ALL },
+    { permission: "workflow.template.update", scope: AccessScope.ALL },
+    { permission: "workflow.template.delete", scope: AccessScope.ALL },
+
+    // WORKFLOW INSTANCE
+    { permission: "workflow.instance.read", scope: AccessScope.ALL },
+    { permission: "workflow.instance.create", scope: AccessScope.ALL },
+    { permission: "workflow.instance.update", scope: AccessScope.ALL },
+    { permission: "workflow.instance.delete", scope: AccessScope.ALL },
+    { permission: "workflow.instance.manage", scope: AccessScope.ALL },
   ],
 
   ADMIN: [
@@ -117,6 +136,22 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "contract.read", scope: AccessScope.ALL },
     { permission: "contract.create", scope: AccessScope.ALL },
     { permission: "contract.update", scope: AccessScope.ALL },
+
+    // MASTER DATA - SERVICE
+    { permission: "master.service.read", scope: AccessScope.ALL },
+    { permission: "master.service.create", scope: AccessScope.ALL },
+    { permission: "master.service.update", scope: AccessScope.ALL },
+
+    // WORKFLOW TEMPLATE
+    { permission: "workflow.template.read", scope: AccessScope.ALL },
+    { permission: "workflow.template.create", scope: AccessScope.ALL },
+    { permission: "workflow.template.update", scope: AccessScope.ALL },
+
+    // WORKFLOW INSTANCE
+    { permission: "workflow.instance.read", scope: AccessScope.ALL },
+    { permission: "workflow.instance.create", scope: AccessScope.ALL },
+    { permission: "workflow.instance.update", scope: AccessScope.ALL },
+    { permission: "workflow.instance.manage", scope: AccessScope.ALL },
   ],
 
   SALES_MANAGER: [
@@ -194,6 +229,17 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "client.read", scope: AccessScope.ALL },
     { permission: "client.contact.read", scope: AccessScope.ALL },
     { permission: "contract.read", scope: AccessScope.ALL },
+
+    { permission: "master.service.read", scope: AccessScope.ALL },
+
+    // WORKFLOW TEMPLATE
+    { permission: "workflow.template.read", scope: AccessScope.ALL },
+
+    // WORKFLOW INSTANCE
+    { permission: "workflow.instance.read", scope: AccessScope.ALL },
+    { permission: "workflow.instance.create", scope: AccessScope.ALL },
+    { permission: "workflow.instance.update", scope: AccessScope.ALL },
+    { permission: "workflow.instance.manage", scope: AccessScope.ALL },
   ],
   SPECIALIST: [],
   DESIGNER: [],
