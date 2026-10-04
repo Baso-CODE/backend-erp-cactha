@@ -87,6 +87,17 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "workflow.instance.update", scope: AccessScope.ALL },
     { permission: "workflow.instance.delete", scope: AccessScope.ALL },
     { permission: "workflow.instance.manage", scope: AccessScope.ALL },
+
+    { permission: "project.read", scope: AccessScope.ALL },
+    { permission: "project.create", scope: AccessScope.ALL },
+    { permission: "project.update", scope: AccessScope.ALL },
+    { permission: "project.delete", scope: AccessScope.ALL },
+    { permission: "project.assign", scope: AccessScope.ALL },
+
+    { permission: "project.service.read", scope: AccessScope.ALL },
+    { permission: "project.service.create", scope: AccessScope.ALL },
+    { permission: "project.service.update", scope: AccessScope.ALL },
+    { permission: "project.service.delete", scope: AccessScope.ALL },
   ],
 
   ADMIN: [
@@ -152,6 +163,15 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "workflow.instance.create", scope: AccessScope.ALL },
     { permission: "workflow.instance.update", scope: AccessScope.ALL },
     { permission: "workflow.instance.manage", scope: AccessScope.ALL },
+
+    { permission: "project.read", scope: AccessScope.ALL },
+    { permission: "project.create", scope: AccessScope.ALL },
+    { permission: "project.update", scope: AccessScope.ALL },
+    { permission: "project.assign", scope: AccessScope.ALL },
+
+    { permission: "project.service.read", scope: AccessScope.ALL },
+    { permission: "project.service.create", scope: AccessScope.ALL },
+    { permission: "project.service.update", scope: AccessScope.ALL },
   ],
 
   SALES_MANAGER: [
@@ -240,6 +260,13 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "workflow.instance.create", scope: AccessScope.ALL },
     { permission: "workflow.instance.update", scope: AccessScope.ALL },
     { permission: "workflow.instance.manage", scope: AccessScope.ALL },
+
+    { permission: "project.read", scope: AccessScope.OWN },
+    { permission: "project.update", scope: AccessScope.OWN },
+
+    { permission: "project.service.read", scope: AccessScope.OWN },
+    { permission: "project.service.create", scope: AccessScope.OWN },
+    { permission: "project.service.update", scope: AccessScope.OWN },
   ],
   SPECIALIST: [],
   DESIGNER: [],
