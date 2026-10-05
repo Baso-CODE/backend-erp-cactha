@@ -1,14 +1,18 @@
 import { Priority, TaskStatus } from "@prisma/client";
 import { Type } from "class-transformer";
-import {
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  IsUUID,
-  Max,
-  Min,
-} from "class-validator";
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from "class-validator";
+
+export enum TaskSortBy {
+  CREATED_AT = "createdAt",
+  DUE_DATE = "dueDate",
+  PRIORITY = "priority",
+  POSITION = "position",
+}
+
+export enum SortOrder {
+  ASC = "asc",
+  DESC = "desc",
+}
 
 export class QueryTaskDTO {
   @IsOptional()
@@ -16,19 +20,19 @@ export class QueryTaskDTO {
   search?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   projectId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   workflowInstanceId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   assigneeId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   parentTaskId?: string;
 
   @IsOptional()
@@ -40,15 +44,23 @@ export class QueryTaskDTO {
   priority?: Priority;
 
   @IsOptional()
+  @IsEnum(TaskSortBy)
+  sortBy: TaskSortBy = TaskSortBy.CREATED_AT;
+
+  @IsOptional()
+  @IsEnum(SortOrder)
+  sortOrder: SortOrder = SortOrder.DESC;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  page: number = 1;
+  page = 1;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(100)
-  limit: number = 20;
+  limit = 20;
 }

@@ -5,7 +5,7 @@ import { ApiError } from "../../../utils/api-error";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateTaskDTO } from "../dto/create-task.dto";
 import { MoveTaskDTO } from "../dto/move-task.dto";
-import { QueryTaskDTO } from "../dto/query-task.dto";
+import { QueryTaskDTO, SortOrder, TaskSortBy } from "../dto/query-task.dto";
 import { UpdateTaskDTO } from "../dto/update-task.dto";
 
 const taskInclude = {
@@ -375,6 +375,23 @@ export class TaskService {
     return parent;
   }
 
+  private buildTaskOrderBy(
+    sortBy: TaskSortBy,
+    sortOrder: SortOrder,
+  ): Prisma.TaskOrderByWithRelationInput[] {
+    switch (sortBy) {
+      case TaskSortBy.DUE_DATE:
+        return [{ dueDate: sortOrder }, { createdAt: "desc" }];
+
+      case TaskSortBy.POSITION:
+        return [{ position: sortOrder }, { createdAt: "asc" }];
+
+      case TaskSortBy.CREATED_AT:
+      default:
+        return [{ createdAt: sortOrder }];
+    }
+  }
+
   async getAll(actorId: string, query: QueryTaskDTO) {
     const {
       search,
@@ -384,6 +401,8 @@ export class TaskService {
       parentTaskId,
       status,
       priority,
+      sortBy = TaskSortBy.CREATED_AT,
+      sortOrder = SortOrder.DESC,
       page = 1,
       limit = 20,
     } = query;
@@ -392,14 +411,31 @@ export class TaskService {
 
     const where: Prisma.TaskWhereInput = {
       ...accessWhere,
-      ...(projectId && { projectId }),
+
+      ...(projectId && {
+        projectId,
+      }),
+
       ...(workflowInstanceId && {
         workflowInstanceId,
       }),
-      ...(assigneeId && { assigneeId }),
-      ...(parentTaskId && { parentTaskId }),
-      ...(status && { status }),
-      ...(priority && { priority }),
+
+      ...(assigneeId && {
+        assigneeId,
+      }),
+
+      ...(parentTaskId && {
+        parentTaskId,
+      }),
+
+      ...(status && {
+        status,
+      }),
+
+      ...(priority && {
+        priority,
+      }),
+
       ...(search && {
         OR: [
           {
@@ -437,19 +473,20 @@ export class TaskService {
 
     const skip = (page - 1) * limit;
 
-    const [data, total] = await Promise.all([
+    const orderBy = this.buildTaskOrderBy(sortBy, sortOrder);
+
+    const [data, total] = await this.prisma.$transaction([
       this.prisma.task.findMany({
         where,
         include: taskInclude,
-        orderBy: [
-          { status: "asc" },
-          { position: "asc" },
-          { createdAt: "desc" },
-        ],
+        orderBy,
         skip,
         take: limit,
       }),
-      this.prisma.task.count({ where }),
+
+      this.prisma.task.count({
+        where,
+      }),
     ]);
 
     return {
@@ -458,7 +495,7 @@ export class TaskService {
         total,
         page,
         limit,
-        totalPages: Math.ceil(total / limit),
+        totalPages: total === 0 ? 0 : Math.ceil(total / limit),
       },
     };
   }
