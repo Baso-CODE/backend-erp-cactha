@@ -48,6 +48,106 @@ const taskInclude = {
   },
 } satisfies Prisma.TaskInclude;
 
+const taskDetailInclude = {
+  project: {
+    select: {
+      id: true,
+      projectCode: true,
+      name: true,
+      projectManagerId: true,
+    },
+  },
+  workflowInstance: {
+    select: {
+      id: true,
+      status: true,
+      currentStepKey: true,
+      workflowTemplateId: true,
+    },
+  },
+  assignee: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+    },
+  },
+  parentTask: {
+    select: {
+      id: true,
+      taskCode: true,
+      title: true,
+      status: true,
+    },
+  },
+  subtasks: {
+    select: {
+      id: true,
+      taskCode: true,
+      title: true,
+      status: true,
+      priority: true,
+      position: true,
+      startDate: true,
+      dueDate: true,
+      assignee: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+      _count: {
+        select: {
+          subtasks: true,
+          checklists: true,
+        },
+      },
+    },
+    orderBy: [
+      {
+        position: "asc",
+      },
+      {
+        createdAt: "asc",
+      },
+    ],
+  },
+  checklists: {
+    orderBy: [
+      {
+        position: "asc",
+      },
+      {
+        createdAt: "asc",
+      },
+    ],
+  },
+  comments: {
+    include: {
+      user: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+  },
+  attachments: true,
+  _count: {
+    select: {
+      subtasks: true,
+      checklists: true,
+      comments: true,
+      attachments: true,
+    },
+  },
+} satisfies Prisma.TaskInclude;
+
 @injectable()
 export class TaskService {
   constructor(
@@ -236,11 +336,40 @@ export class TaskService {
       );
     }
 
-    if (currentTaskId && parent.parentTaskId === currentTaskId) {
-      throw new ApiError(
-        "Relasi parent task akan menyebabkan circular dependency",
-        400,
-      );
+    if (currentTaskId) {
+      let cursor: string | null = parent.parentTaskId;
+      const visited = new Set<string>();
+
+      while (cursor) {
+        if (cursor === currentTaskId) {
+          throw new ApiError(
+            "Relasi parent task akan menyebabkan circular dependency",
+            400,
+          );
+        }
+
+        if (visited.has(cursor)) {
+          throw new ApiError(
+            "Struktur subtask tidak valid karena terdapat circular dependency",
+            400,
+          );
+        }
+
+        visited.add(cursor);
+
+        const ancestor = await this.prisma.task.findUnique({
+          where: { id: cursor },
+          select: {
+            parentTaskId: true,
+          },
+        });
+
+        if (!ancestor) {
+          break;
+        }
+
+        cursor = ancestor.parentTaskId;
+      }
     }
 
     return parent;
@@ -335,7 +464,21 @@ export class TaskService {
   }
 
   async getById(id: string, actorId: string) {
-    return this.getAccessibleTask(id, actorId, "task.read");
+    const accessWhere = await this.buildAccessWhere(actorId, "task.read");
+
+    const task = await this.prisma.task.findFirst({
+      where: {
+        id,
+        ...accessWhere,
+      },
+      include: taskDetailInclude,
+    });
+
+    if (!task) {
+      throw new ApiError("Task tidak ditemukan atau tidak dapat diakses", 404);
+    }
+
+    return task;
   }
 
   async create(actorId: string, dto: CreateTaskDTO) {
@@ -361,17 +504,10 @@ export class TaskService {
       await this.validateAssignee(dto.assigneeId);
 
       if (dto.assigneeId !== actorId) {
-        const assignScope = await this.accessScopeService.getPermissionScope(
+        await this.accessScopeService.getPermissionScope(
           actorId,
           "task.assign",
         );
-
-        if (!assignScope) {
-          throw new ApiError(
-            "Anda tidak memiliki permission untuk assign task",
-            403,
-          );
-        }
       }
     }
 
@@ -412,8 +548,7 @@ export class TaskService {
         },
       });
 
-      const position = (lastTask?.position ?? 0) + 1;
-
+      const position = (lastTask?.position ?? 0) + 1024;
       const task = await tx.task.create({
         data: {
           taskCode,
@@ -534,14 +669,149 @@ export class TaskService {
   }
 
   async move(id: string, actorId: string, dto: MoveTaskDTO) {
-    await this.getAccessibleTask(id, actorId, "task.manage");
+    const currentTask = await this.getAccessibleTask(
+      id,
+      actorId,
+      "task.manage",
+    );
+
+    if (dto.beforeTaskId === id || dto.afterTaskId === id) {
+      throw new ApiError(
+        "Task tidak dapat dijadikan referensi posisi dirinya sendiri",
+        400,
+      );
+    }
+
+    const [beforeTask, afterTask] = await Promise.all([
+      dto.beforeTaskId
+        ? this.prisma.task.findUnique({
+            where: {
+              id: dto.beforeTaskId,
+            },
+            select: {
+              id: true,
+              projectId: true,
+              status: true,
+              position: true,
+            },
+          })
+        : null,
+
+      dto.afterTaskId
+        ? this.prisma.task.findUnique({
+            where: {
+              id: dto.afterTaskId,
+            },
+            select: {
+              id: true,
+              projectId: true,
+              status: true,
+              position: true,
+            },
+          })
+        : null,
+    ]);
+
+    for (const referenceTask of [beforeTask, afterTask]) {
+      if (!referenceTask) continue;
+
+      if (referenceTask.projectId !== currentTask.projectId) {
+        throw new ApiError(
+          "Task referensi harus berasal dari project yang sama",
+          400,
+        );
+      }
+
+      if (referenceTask.status !== dto.status) {
+        throw new ApiError(
+          "Task referensi harus berada pada status tujuan yang sama",
+          400,
+        );
+      }
+    }
+
+    if (beforeTask && afterTask && beforeTask.position >= afterTask.position) {
+      throw new ApiError("Urutan beforeTask dan afterTask tidak valid", 400);
+    }
+
+    let position: number;
+
+    if (beforeTask && afterTask) {
+      position = (beforeTask.position + afterTask.position) / 2;
+    } else if (beforeTask) {
+      const nextTask = await this.prisma.task.findFirst({
+        where: {
+          projectId: currentTask.projectId,
+          status: dto.status,
+          id: {
+            not: id,
+          },
+          position: {
+            gt: beforeTask.position,
+          },
+        },
+        orderBy: {
+          position: "asc",
+        },
+        select: {
+          position: true,
+        },
+      });
+
+      position = nextTask
+        ? (beforeTask.position + nextTask.position) / 2
+        : beforeTask.position + 1024;
+    } else if (afterTask) {
+      const previousTask = await this.prisma.task.findFirst({
+        where: {
+          projectId: currentTask.projectId,
+          status: dto.status,
+          id: {
+            not: id,
+          },
+          position: {
+            lt: afterTask.position,
+          },
+        },
+        orderBy: {
+          position: "desc",
+        },
+        select: {
+          position: true,
+        },
+      });
+
+      position = previousTask
+        ? (previousTask.position + afterTask.position) / 2
+        : afterTask.position - 1024;
+    } else {
+      const lastTask = await this.prisma.task.findFirst({
+        where: {
+          projectId: currentTask.projectId,
+          status: dto.status,
+          id: {
+            not: id,
+          },
+        },
+        orderBy: {
+          position: "desc",
+        },
+        select: {
+          position: true,
+        },
+      });
+
+      position = (lastTask?.position ?? 0) + 1024;
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const task = await tx.task.update({
-        where: { id },
+        where: {
+          id,
+        },
         data: {
           status: dto.status,
-          position: dto.position,
+          position,
         },
         include: taskInclude,
       });
@@ -553,8 +823,11 @@ export class TaskService {
           entity: "Task",
           entityId: task.id,
           details: {
-            status: dto.status,
-            position: dto.position,
+            fromStatus: currentTask.status,
+            toStatus: dto.status,
+            beforeTaskId: dto.beforeTaskId ?? null,
+            afterTaskId: dto.afterTaskId ?? null,
+            position,
           },
         },
       });

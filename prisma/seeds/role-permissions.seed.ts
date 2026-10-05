@@ -116,6 +116,9 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "task.comment.create", scope: AccessScope.ALL },
     { permission: "task.comment.update", scope: AccessScope.ALL },
     { permission: "task.comment.delete", scope: AccessScope.ALL },
+
+    { permission: "task.attachment.create", scope: AccessScope.ALL },
+    { permission: "task.attachment.delete", scope: AccessScope.ALL },
   ],
 
   ADMIN: [
@@ -207,6 +210,9 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "task.comment.create", scope: AccessScope.ALL },
     { permission: "task.comment.update", scope: AccessScope.ALL },
     { permission: "task.comment.delete", scope: AccessScope.ALL },
+
+    { permission: "task.attachment.create", scope: AccessScope.ALL },
+    { permission: "task.attachment.delete", scope: AccessScope.ALL },
   ],
 
   SALES_MANAGER: [
@@ -319,6 +325,9 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "task.comment.create", scope: AccessScope.OWN },
     { permission: "task.comment.update", scope: AccessScope.OWN },
     { permission: "task.comment.delete", scope: AccessScope.OWN },
+
+    { permission: "task.attachment.create", scope: AccessScope.OWN },
+    { permission: "task.attachment.delete", scope: AccessScope.OWN },
   ],
   SPECIALIST: [
     { permission: "task.read", scope: AccessScope.OWN },
@@ -345,6 +354,9 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "task.comment.create", scope: AccessScope.OWN },
     { permission: "task.comment.update", scope: AccessScope.OWN },
     { permission: "task.comment.delete", scope: AccessScope.OWN },
+
+    { permission: "task.attachment.create", scope: AccessScope.OWN },
+    { permission: "task.attachment.delete", scope: AccessScope.OWN },
   ],
   EDITOR: [
     { permission: "task.read", scope: AccessScope.OWN },
@@ -358,6 +370,9 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "task.comment.create", scope: AccessScope.OWN },
     { permission: "task.comment.update", scope: AccessScope.OWN },
     { permission: "task.comment.delete", scope: AccessScope.OWN },
+
+    { permission: "task.attachment.create", scope: AccessScope.OWN },
+    { permission: "task.attachment.delete", scope: AccessScope.OWN },
   ],
   TALENT: [
     { permission: "task.read", scope: AccessScope.OWN },
@@ -371,6 +386,9 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "task.comment.create", scope: AccessScope.OWN },
     { permission: "task.comment.update", scope: AccessScope.OWN },
     { permission: "task.comment.delete", scope: AccessScope.OWN },
+
+    { permission: "task.attachment.create", scope: AccessScope.OWN },
+    { permission: "task.attachment.delete", scope: AccessScope.OWN },
   ],
   FINANCE: [
     { permission: "client.read", scope: AccessScope.ALL },
