@@ -459,6 +459,93 @@ export async function seedPermissions(prisma: PrismaClient) {
       action: "delete",
       description: "Menghapus service dari project",
     },
+
+    // ==========================================
+    // TASK
+    // ==========================================
+
+    {
+      code: "task.read",
+      module: "task",
+      action: "read",
+      description: "Melihat task",
+    },
+    {
+      code: "task.create",
+      module: "task",
+      action: "create",
+      description: "Membuat task",
+    },
+    {
+      code: "task.update",
+      module: "task",
+      action: "update",
+      description: "Mengubah task",
+    },
+    {
+      code: "task.delete",
+      module: "task",
+      action: "delete",
+      description: "Menghapus task",
+    },
+    {
+      code: "task.assign",
+      module: "task",
+      action: "assign",
+      description: "Assign task ke user",
+    },
+    {
+      code: "task.manage",
+      module: "task",
+      action: "manage",
+      description: "Mengelola status, posisi, dan workflow task",
+    },
+
+    // ==========================================
+    // TASK CHECKLIST
+    // ==========================================
+
+    {
+      code: "task.checklist.create",
+      module: "task",
+      action: "create",
+      description: "Membuat checklist task",
+    },
+    {
+      code: "task.checklist.update",
+      module: "task",
+      action: "update",
+      description: "Mengubah checklist task",
+    },
+    {
+      code: "task.checklist.delete",
+      module: "task",
+      action: "delete",
+      description: "Menghapus checklist task",
+    },
+
+    // ==========================================
+    // TASK COMMENT
+    // ==========================================
+
+    {
+      code: "task.comment.create",
+      module: "task",
+      action: "create",
+      description: "Membuat komentar task",
+    },
+    {
+      code: "task.comment.update",
+      module: "task",
+      action: "update",
+      description: "Mengubah komentar task",
+    },
+    {
+      code: "task.comment.delete",
+      module: "task",
+      action: "delete",
+      description: "Menghapus komentar task",
+    },
   ];
 
   for (const permission of permissions) {

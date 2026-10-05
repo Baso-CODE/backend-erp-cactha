@@ -98,6 +98,24 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "project.service.create", scope: AccessScope.ALL },
     { permission: "project.service.update", scope: AccessScope.ALL },
     { permission: "project.service.delete", scope: AccessScope.ALL },
+
+    // TASK
+    { permission: "task.read", scope: AccessScope.ALL },
+    { permission: "task.create", scope: AccessScope.ALL },
+    { permission: "task.update", scope: AccessScope.ALL },
+    { permission: "task.delete", scope: AccessScope.ALL },
+    { permission: "task.assign", scope: AccessScope.ALL },
+    { permission: "task.manage", scope: AccessScope.ALL },
+
+    // TASK CHECKLIST
+    { permission: "task.checklist.create", scope: AccessScope.ALL },
+    { permission: "task.checklist.update", scope: AccessScope.ALL },
+    { permission: "task.checklist.delete", scope: AccessScope.ALL },
+
+    // TASK COMMENT
+    { permission: "task.comment.create", scope: AccessScope.ALL },
+    { permission: "task.comment.update", scope: AccessScope.ALL },
+    { permission: "task.comment.delete", scope: AccessScope.ALL },
   ],
 
   ADMIN: [
@@ -172,6 +190,23 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "project.service.read", scope: AccessScope.ALL },
     { permission: "project.service.create", scope: AccessScope.ALL },
     { permission: "project.service.update", scope: AccessScope.ALL },
+
+    // TASK
+    { permission: "task.read", scope: AccessScope.ALL },
+    { permission: "task.create", scope: AccessScope.ALL },
+    { permission: "task.update", scope: AccessScope.ALL },
+    { permission: "task.assign", scope: AccessScope.ALL },
+    { permission: "task.manage", scope: AccessScope.ALL },
+
+    // TASK CHECKLIST
+    { permission: "task.checklist.create", scope: AccessScope.ALL },
+    { permission: "task.checklist.update", scope: AccessScope.ALL },
+    { permission: "task.checklist.delete", scope: AccessScope.ALL },
+
+    // TASK COMMENT
+    { permission: "task.comment.create", scope: AccessScope.ALL },
+    { permission: "task.comment.update", scope: AccessScope.ALL },
+    { permission: "task.comment.delete", scope: AccessScope.ALL },
   ],
 
   SALES_MANAGER: [
@@ -267,11 +302,76 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "project.service.read", scope: AccessScope.OWN },
     { permission: "project.service.create", scope: AccessScope.OWN },
     { permission: "project.service.update", scope: AccessScope.OWN },
+
+    // TASK
+    { permission: "task.read", scope: AccessScope.OWN },
+    { permission: "task.create", scope: AccessScope.OWN },
+    { permission: "task.update", scope: AccessScope.OWN },
+    { permission: "task.assign", scope: AccessScope.OWN },
+    { permission: "task.manage", scope: AccessScope.OWN },
+
+    // TASK CHECKLIST
+    { permission: "task.checklist.create", scope: AccessScope.OWN },
+    { permission: "task.checklist.update", scope: AccessScope.OWN },
+    { permission: "task.checklist.delete", scope: AccessScope.OWN },
+
+    // TASK COMMENT
+    { permission: "task.comment.create", scope: AccessScope.OWN },
+    { permission: "task.comment.update", scope: AccessScope.OWN },
+    { permission: "task.comment.delete", scope: AccessScope.OWN },
   ],
-  SPECIALIST: [],
-  DESIGNER: [],
-  EDITOR: [],
-  TALENT: [],
+  SPECIALIST: [
+    { permission: "task.read", scope: AccessScope.OWN },
+    { permission: "task.create", scope: AccessScope.OWN },
+    { permission: "task.update", scope: AccessScope.OWN },
+    { permission: "task.manage", scope: AccessScope.OWN },
+
+    { permission: "task.checklist.create", scope: AccessScope.OWN },
+    { permission: "task.checklist.update", scope: AccessScope.OWN },
+
+    { permission: "task.comment.create", scope: AccessScope.OWN },
+    { permission: "task.comment.update", scope: AccessScope.OWN },
+    { permission: "task.comment.delete", scope: AccessScope.OWN },
+  ],
+  DESIGNER: [
+    { permission: "task.read", scope: AccessScope.OWN },
+    { permission: "task.create", scope: AccessScope.OWN },
+    { permission: "task.update", scope: AccessScope.OWN },
+    { permission: "task.manage", scope: AccessScope.OWN },
+
+    { permission: "task.checklist.create", scope: AccessScope.OWN },
+    { permission: "task.checklist.update", scope: AccessScope.OWN },
+
+    { permission: "task.comment.create", scope: AccessScope.OWN },
+    { permission: "task.comment.update", scope: AccessScope.OWN },
+    { permission: "task.comment.delete", scope: AccessScope.OWN },
+  ],
+  EDITOR: [
+    { permission: "task.read", scope: AccessScope.OWN },
+    { permission: "task.create", scope: AccessScope.OWN },
+    { permission: "task.update", scope: AccessScope.OWN },
+    { permission: "task.manage", scope: AccessScope.OWN },
+
+    { permission: "task.checklist.create", scope: AccessScope.OWN },
+    { permission: "task.checklist.update", scope: AccessScope.OWN },
+
+    { permission: "task.comment.create", scope: AccessScope.OWN },
+    { permission: "task.comment.update", scope: AccessScope.OWN },
+    { permission: "task.comment.delete", scope: AccessScope.OWN },
+  ],
+  TALENT: [
+    { permission: "task.read", scope: AccessScope.OWN },
+    { permission: "task.create", scope: AccessScope.OWN },
+    { permission: "task.update", scope: AccessScope.OWN },
+    { permission: "task.manage", scope: AccessScope.OWN },
+
+    { permission: "task.checklist.create", scope: AccessScope.OWN },
+    { permission: "task.checklist.update", scope: AccessScope.OWN },
+
+    { permission: "task.comment.create", scope: AccessScope.OWN },
+    { permission: "task.comment.update", scope: AccessScope.OWN },
+    { permission: "task.comment.delete", scope: AccessScope.OWN },
+  ],
   FINANCE: [
     { permission: "client.read", scope: AccessScope.ALL },
     { permission: "client.contact.read", scope: AccessScope.ALL },
