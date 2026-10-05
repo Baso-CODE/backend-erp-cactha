@@ -1,15 +1,15 @@
 generator client {
-    provider = "prisma-client-js"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-    provider = "mysql"
+  provider = "mysql"
 }
 
 model Counter {
-    key       String   @id
-    value     Int      @default(0)
-    updatedAt DateTime @updatedAt
+  key       String   @id
+  value     Int      @default(0)
+  updatedAt DateTime @updatedAt
 }
 
 // ==========================================
@@ -17,11 +17,11 @@ model Counter {
 // ==========================================
 
 enum AccessScope {
-    OWN
-    TEAM
-    PROJECT
-    CLIENT
-    ALL
+  OWN
+  TEAM
+  PROJECT
+  CLIENT
+  ALL
 }
 
 // ==========================================
@@ -29,28 +29,28 @@ enum AccessScope {
 // ==========================================
 
 model User {
-    id        String   @id @default(uuid())
-    email     String   @unique
-    name      String
-    password  String
-    isActive  Boolean  @default(true)
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  password  String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    // RBAC
-    roles UserRole[]
+  // RBAC
+  roles UserRole[]
 
-    // Relasi sebagai PIC / Owner
-    leadsManaged        Lead[]        @relation("SalesAssignee")
-    clientsManaged      Client[]      @relation("AccountManager")
-    projectsManaged     Project[]     @relation("ProjectManager")
-    activitiesDone      Activity[]    @relation("ActivityPerformer")
-    auditLogs           AuditLog[]
-    uploadedAttachments Attachment[]  @relation("UploadedAttachments")
-    assignedTasks       Task[]        @relation("TaskAssignee")
-    taskComments        TaskComment[] @relation("TaskCommentAuthor")
+  // Relasi sebagai PIC / Owner
+  leadsManaged        Lead[]        @relation("SalesAssignee")
+  clientsManaged      Client[]      @relation("AccountManager")
+  projectsManaged     Project[]     @relation("ProjectManager")
+  activitiesDone      Activity[]    @relation("ActivityPerformer")
+  auditLogs           AuditLog[]
+  uploadedAttachments Attachment[]  @relation("UploadedAttachments")
+  assignedTasks       Task[]        @relation("TaskAssignee")
+  taskComments        TaskComment[] @relation("TaskCommentAuthor")
 
-    @@index([isActive])
+  @@index([isActive])
 }
 
 // ==========================================
@@ -58,17 +58,17 @@ model User {
 // ==========================================
 
 model Role {
-    id          String   @id @default(uuid())
-    code        String   @unique
-    name        String
-    description String?
-    isSystem    Boolean  @default(false)
-    isActive    Boolean  @default(true)
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-    users       UserRole[]
-    permissions RolePermission[]
+  users       UserRole[]
+  permissions RolePermission[]
 }
 
 // ==========================================
@@ -76,18 +76,18 @@ model Role {
 // ==========================================
 
 model Permission {
-    id          String   @id @default(uuid())
-    code        String   @unique
-    module      String
-    action      String
-    description String?
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
+  id          String   @id @default(uuid())
+  code        String   @unique
+  module      String
+  action      String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-    roles RolePermission[]
+  roles RolePermission[]
 
-    @@index([module])
-    @@index([action])
+  @@index([module])
+  @@index([action])
 }
 
 // ==========================================
@@ -95,15 +95,15 @@ model Permission {
 // ==========================================
 
 model UserRole {
-    userId     String
-    roleId     String
-    assignedAt DateTime @default(now())
+  userId     String
+  roleId     String
+  assignedAt DateTime @default(now())
 
-    user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-    role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
-    @@id([userId, roleId])
-    @@index([roleId])
+  @@id([userId, roleId])
+  @@index([roleId])
 }
 
 // ==========================================
@@ -111,15 +111,15 @@ model UserRole {
 // ==========================================
 
 model RolePermission {
-    roleId       String
-    permissionId String
-    scope        AccessScope @default(OWN)
+  roleId       String
+  permissionId String
+  scope        AccessScope @default(OWN)
 
-    role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
-    permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
 
-    @@id([roleId, permissionId])
-    @@index([permissionId])
+  @@id([roleId, permissionId])
+  @@index([permissionId])
 }
 
 // ==========================================
@@ -127,19 +127,19 @@ model RolePermission {
 // ==========================================
 
 model AuditLog {
-    id        String   @id @default(uuid())
-    userId    String?
-    action    String
-    entity    String
-    entityId  String
-    details   Json?
-    createdAt DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  entity    String
+  entityId  String
+  details   Json?
+  createdAt DateTime @default(now())
 
-    user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
-    @@index([userId])
-    @@index([entity, entityId])
-    @@index([createdAt])
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([createdAt])
 }
 
 // ==========================================
@@ -147,133 +147,133 @@ model AuditLog {
 // ==========================================
 
 enum LeadStatus {
-    NEW
-    QUALIFIED
-    PROPOSAL
-    NEGOTIATION
-    WON
-    LOST
+  NEW
+  QUALIFIED
+  PROPOSAL
+  NEGOTIATION
+  WON
+  LOST
 }
 
 model Lead {
-    id             String     @id @default(uuid())
-    leadCode       String     @unique
-    company        String
-    pic            String
-    phone          String
-    email          String?
-    industry       String?
-    address        String?    @db.Text
-    estimatedValue Decimal?   @db.Decimal(15, 2)
-    status         LeadStatus @default(NEW)
-    source         String?
+  id             String     @id @default(uuid())
+  leadCode       String     @unique
+  company        String
+  pic            String
+  phone          String
+  email          String?
+  industry       String?
+  address        String?    @db.Text
+  estimatedValue Decimal?   @db.Decimal(15, 2)
+  status         LeadStatus @default(NEW)
+  source         String?
 
-    assigneeId String
-    assignee   User   @relation("SalesAssignee", fields: [assigneeId], references: [id])
+  assigneeId String
+  assignee   User   @relation("SalesAssignee", fields: [assigneeId], references: [id])
 
-    activities  Activity[]
-    proposals   Proposal[]
-    quotations  Quotation[]
-    client      Client?
-    attachments Attachment[] @relation("LeadAttachments")
+  activities  Activity[]
+  proposals   Proposal[]
+  quotations  Quotation[]
+  client      Client?
+  attachments Attachment[] @relation("LeadAttachments")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([status])
-    @@index([assigneeId])
-    @@index([company])
-    @@index([createdAt])
+  @@index([status])
+  @@index([assigneeId])
+  @@index([company])
+  @@index([createdAt])
 }
 
 enum ActivityType {
-    CALL
-    WHATSAPP
-    EMAIL
-    MEETING
-    VISIT
-    NOTE
+  CALL
+  WHATSAPP
+  EMAIL
+  MEETING
+  VISIT
+  NOTE
 }
 
 enum ActivityStatus {
-    SCHEDULED
-    COMPLETED
-    CANCELLED
+  SCHEDULED
+  COMPLETED
+  CANCELLED
 }
 
 model Activity {
-    id          String       @id @default(uuid())
-    leadId      String
-    lead        Lead         @relation(fields: [leadId], references: [id])
-    type        ActivityType
-    subject     String
-    description String       @db.Text
-    result      String?      @db.Text
-    attachment  String? // URL File sederhana (jika tidak butuh tabel Attachment)
+  id          String       @id @default(uuid())
+  leadId      String
+  lead        Lead         @relation(fields: [leadId], references: [id])
+  type        ActivityType
+  subject     String
+  description String       @db.Text
+  result      String?      @db.Text
+  attachment  String? // URL File sederhana (jika tidak butuh tabel Attachment)
 
-    activityDate DateTime
-    nextFollowUp DateTime? // Jika diisi, sistem membuat activity Scheduled baru
-    status       ActivityStatus @default(COMPLETED)
+  activityDate DateTime
+  nextFollowUp DateTime? // Jika diisi, sistem membuat activity Scheduled baru
+  status       ActivityStatus @default(COMPLETED)
 
-    performedById String
-    performedBy   User   @relation("ActivityPerformer", fields: [performedById], references: [id])
+  performedById String
+  performedBy   User   @relation("ActivityPerformer", fields: [performedById], references: [id])
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum ProposalStatus {
-    DRAFT
-    SENT
-    APPROVED
-    REJECTED
-    EXPIRED
-    WITHDRAWN
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  EXPIRED
+  WITHDRAWN
 }
 
 model Proposal {
-    id           String         @id @default(uuid())
-    proposalNo   String         @unique
-    version      String         @default("1.0")
-    leadId       String
-    lead         Lead           @relation(fields: [leadId], references: [id])
-    subject      String
-    amount       Decimal        @db.Decimal(15, 2)
-    proposalDate DateTime
-    validUntil   DateTime
-    status       ProposalStatus @default(DRAFT)
-    fileUrl      String?
+  id           String         @id @default(uuid())
+  proposalNo   String         @unique
+  version      String         @default("1.0")
+  leadId       String
+  lead         Lead           @relation(fields: [leadId], references: [id])
+  subject      String
+  amount       Decimal        @db.Decimal(15, 2)
+  proposalDate DateTime
+  validUntil   DateTime
+  status       ProposalStatus @default(DRAFT)
+  fileUrl      String?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum QuotationStatus {
-    DRAFT
-    SENT
-    APPROVED
-    REJECTED
-    EXPIRED
-    WITHDRAWN
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  EXPIRED
+  WITHDRAWN
 }
 
 model Quotation {
-    id          String          @id @default(uuid())
-    quotationNo String          @unique
-    version     String          @default("1.0")
-    leadId      String
-    lead        Lead            @relation(fields: [leadId], references: [id])
-    amount      Decimal         @db.Decimal(15, 2)
-    status      QuotationStatus @default(DRAFT)
+  id          String          @id @default(uuid())
+  quotationNo String          @unique
+  version     String          @default("1.0")
+  leadId      String
+  lead        Lead            @relation(fields: [leadId], references: [id])
+  amount      Decimal         @db.Decimal(15, 2)
+  status      QuotationStatus @default(DRAFT)
 
-    contracts Contract[]
+  contracts Contract[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([leadId])
-    @@index([status])
-    @@index([createdAt])
+  @@index([leadId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 // ==========================================
@@ -281,91 +281,91 @@ model Quotation {
 // ==========================================
 
 enum ClientStatus {
-    ACTIVE
-    INACTIVE
+  ACTIVE
+  INACTIVE
 }
 
 model Client {
-    id           String       @id @default(uuid())
-    clientCode   String       @unique
-    companyName  String
-    industry     String?
-    businessType String?
-    website      String?
-    address      String?      @db.Text
-    status       ClientStatus @default(ACTIVE)
+  id           String       @id @default(uuid())
+  clientCode   String       @unique
+  companyName  String
+  industry     String?
+  businessType String?
+  website      String?
+  address      String?      @db.Text
+  status       ClientStatus @default(ACTIVE)
 
-    sourceLeadId String? @unique
-    sourceLead   Lead?   @relation(fields: [sourceLeadId], references: [id])
+  sourceLeadId String? @unique
+  sourceLead   Lead?   @relation(fields: [sourceLeadId], references: [id])
 
-    accountManagerId String
-    accountManager   User   @relation("AccountManager", fields: [accountManagerId], references: [id])
+  accountManagerId String
+  accountManager   User   @relation("AccountManager", fields: [accountManagerId], references: [id])
 
-    contacts  ContactPerson[]
-    contracts Contract[]
-    projects  Project[]
-    tickets   SupportTicket[]
-    invoices  Invoice[]
+  contacts  ContactPerson[]
+  contracts Contract[]
+  projects  Project[]
+  tickets   SupportTicket[]
+  invoices  Invoice[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ContactPerson {
-    id         String       @id @default(uuid())
-    clientId   String
-    client     Client       @relation(fields: [clientId], references: [id])
-    fullName   String
-    position   String
-    department String?
-    email      String
-    phone      String?
-    mobile     String?
-    isPrimary  Boolean      @default(false)
-    status     ClientStatus @default(ACTIVE)
+  id         String       @id @default(uuid())
+  clientId   String
+  client     Client       @relation(fields: [clientId], references: [id])
+  fullName   String
+  position   String
+  department String?
+  email      String
+  phone      String?
+  mobile     String?
+  isPrimary  Boolean      @default(false)
+  status     ClientStatus @default(ACTIVE)
 
-    approvalRequests ApprovalRequest[]
+  approvalRequests ApprovalRequest[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum ContractStatus {
-    DRAFT
-    ACTIVE
-    EXPIRED
-    TERMINATED
+  DRAFT
+  ACTIVE
+  EXPIRED
+  TERMINATED
 }
 
 model Contract {
-    id          String     @id @default(uuid())
-    contractNo  String     @unique
-    title       String
-    clientId    String
-    client      Client     @relation(fields: [clientId], references: [id])
-    quotationId String?
-    quotation   Quotation? @relation(fields: [quotationId], references: [id])
+  id          String     @id @default(uuid())
+  contractNo  String     @unique
+  title       String
+  clientId    String
+  client      Client     @relation(fields: [clientId], references: [id])
+  quotationId String?
+  quotation   Quotation? @relation(fields: [quotationId], references: [id])
 
-    contractType String?
-    startDate    DateTime
-    endDate      DateTime
-    value        Decimal  @db.Decimal(15, 2)
-    currency     String   @default("IDR")
-    paymentTerm  String?
+  contractType String?
+  startDate    DateTime
+  endDate      DateTime
+  value        Decimal  @db.Decimal(15, 2)
+  currency     String   @default("IDR")
+  paymentTerm  String?
 
-    slaTerms        String? @db.Text
-    termsConditions String? @db.Text
-    documentUrl     String?
+  slaTerms        String? @db.Text
+  termsConditions String? @db.Text
+  documentUrl     String?
 
-    status          ContractStatus @default(DRAFT)
-    renewalReminder Boolean        @default(false)
+  status          ContractStatus @default(DRAFT)
+  renewalReminder Boolean        @default(false)
 
-    projects          Project[]
-    recurringBillings RecurringBilling[]
-    attachments       Attachment[]       @relation("ContractAttachments")
+  projects          Project[]
+  recurringBillings RecurringBilling[]
+  attachments       Attachment[]       @relation("ContractAttachments")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ==========================================
@@ -373,71 +373,71 @@ model Contract {
 // ==========================================
 
 enum WorkflowStatus {
-    RUNNING
-    PAUSED
-    COMPLETED
-    CANCELLED
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
 }
 
 model MasterService {
-    id          String  @id @default(uuid())
-    code        String  @unique
-    name        String
-    description String?
-    isActive    Boolean @default(true)
+  id          String  @id @default(uuid())
+  code        String  @unique
+  name        String
+  description String?
+  isActive    Boolean @default(true)
 
-    workflowTemplateId String?
-    defaultTemplate    WorkflowTemplate? @relation(fields: [workflowTemplateId], references: [id], onDelete: SetNull)
+  workflowTemplateId String?
+  defaultTemplate    WorkflowTemplate? @relation(fields: [workflowTemplateId], references: [id], onDelete: SetNull)
 
-    projectServices ProjectService[]
+  projectServices ProjectService[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([name])
-    @@index([isActive])
-    @@index([workflowTemplateId])
+  @@index([name])
+  @@index([isActive])
+  @@index([workflowTemplateId])
 }
 
 model WorkflowTemplate {
-    id          String  @id @default(uuid())
-    name        String
-    description String?
-    steps       Json
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  steps       Json
 
-    masterServices MasterService[]
-    instances      WorkflowInstance[]
+  masterServices MasterService[]
+  instances      WorkflowInstance[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([name])
+  @@index([name])
 }
 
 model WorkflowInstance {
-    id String @id @default(uuid())
+  id String @id @default(uuid())
 
-    workflowTemplateId String
-    template           WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id])
+  workflowTemplateId String
+  template           WorkflowTemplate @relation(fields: [workflowTemplateId], references: [id])
 
-    projectServiceId String         @unique
-    projectService   ProjectService @relation(fields: [projectServiceId], references: [id], onDelete: Cascade)
+  projectServiceId String         @unique
+  projectService   ProjectService @relation(fields: [projectServiceId], references: [id], onDelete: Cascade)
 
-    status WorkflowStatus @default(RUNNING)
+  status WorkflowStatus @default(RUNNING)
 
-    currentStepKey String?
-    stepsSnapshot  Json
+  currentStepKey String?
+  stepsSnapshot  Json
 
-    tasks Task[]
+  tasks Task[]
 
-    startedAt   DateTime  @default(now())
-    completedAt DateTime?
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([workflowTemplateId])
-    @@index([status])
+  @@index([workflowTemplateId])
+  @@index([status])
 }
 
 // ==========================================
@@ -445,73 +445,73 @@ model WorkflowInstance {
 // ==========================================
 
 enum ProjectStatus {
-    DRAFT
-    PLANNING
-    IN_PROGRESS
-    INTERNAL_REVIEW
-    PENDING_CLIENT_APPROVAL
-    CLIENT_REVISION
-    APPROVED
-    COMPLETED
-    ON_HOLD
-    CANCELLED
+  DRAFT
+  PLANNING
+  IN_PROGRESS
+  INTERNAL_REVIEW
+  PENDING_CLIENT_APPROVAL
+  CLIENT_REVISION
+  APPROVED
+  COMPLETED
+  ON_HOLD
+  CANCELLED
 }
 
 model Project {
-    id          String  @id @default(uuid())
-    projectCode String  @unique
-    name        String
-    projectType String
-    description String? @db.Text
+  id          String  @id @default(uuid())
+  projectCode String  @unique
+  name        String
+  projectType String
+  description String? @db.Text
 
-    clientId String
-    client   Client @relation(fields: [clientId], references: [id])
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
 
-    contractId String?
-    contract   Contract? @relation(fields: [contractId], references: [id])
+  contractId String?
+  contract   Contract? @relation(fields: [contractId], references: [id])
 
-    projectManagerId String
-    projectManager   User   @relation("ProjectManager", fields: [projectManagerId], references: [id])
+  projectManagerId String
+  projectManager   User   @relation("ProjectManager", fields: [projectManagerId], references: [id])
 
-    startDate     DateTime
-    targetEndDate DateTime
-    actualEndDate DateTime?
-    status        ProjectStatus @default(PLANNING)
+  startDate     DateTime
+  targetEndDate DateTime
+  actualEndDate DateTime?
+  status        ProjectStatus @default(PLANNING)
 
-    services           ProjectService[]
-    tasks              Task[]
-    deliverables       Deliverable[]
-    performanceMetrics PerformanceMetric[]
+  services           ProjectService[]
+  tasks              Task[]
+  deliverables       Deliverable[]
+  performanceMetrics PerformanceMetric[]
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([clientId])
-    @@index([contractId])
-    @@index([projectManagerId])
-    @@index([status])
-    @@index([createdAt])
+  @@index([clientId])
+  @@index([contractId])
+  @@index([projectManagerId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 model ProjectService {
-    id String @id @default(uuid())
+  id String @id @default(uuid())
 
-    projectId String
-    project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-    masterServiceId String
-    masterService   MasterService @relation(fields: [masterServiceId], references: [id])
+  masterServiceId String
+  masterService   MasterService @relation(fields: [masterServiceId], references: [id])
 
-    startDate DateTime?
-    endDate   DateTime?
+  startDate DateTime?
+  endDate   DateTime?
 
-    workflowInstance WorkflowInstance?
+  workflowInstance WorkflowInstance?
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@unique([projectId, masterServiceId])
-    @@index([masterServiceId])
+  @@unique([projectId, masterServiceId])
+  @@index([masterServiceId])
 }
 
 // ==========================================
@@ -520,93 +520,93 @@ model ProjectService {
 // ==========================================
 
 enum TaskStatus {
-    TODO
-    IN_PROGRESS
-    REVIEW
-    BLOCKED
-    COMPLETED
+  TODO
+  IN_PROGRESS
+  REVIEW
+  BLOCKED
+  COMPLETED
 }
 
 enum Priority {
-    LOW
-    MEDIUM
-    HIGH
+  LOW
+  MEDIUM
+  HIGH
 }
 
 model Task {
-    id          String  @id @default(uuid())
-    taskCode    String  @unique
-    title       String
-    description String? @db.Text
+  id          String  @id @default(uuid())
+  taskCode    String  @unique
+  title       String
+  description String? @db.Text
 
-    projectId String
-    project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-    workflowInstanceId String?
-    workflowInstance   WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id], onDelete: SetNull)
+  workflowInstanceId String?
+  workflowInstance   WorkflowInstance? @relation(fields: [workflowInstanceId], references: [id], onDelete: SetNull)
 
-    assigneeId String?
-    assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  assigneeId String?
+  assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id])
 
-    parentTaskId String?
-    parentTask   Task?   @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
-    subtasks     Task[]  @relation("TaskSubtasks")
+  parentTaskId String?
+  parentTask   Task?   @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  subtasks     Task[]  @relation("TaskSubtasks")
 
-    priority Priority   @default(MEDIUM)
-    status   TaskStatus @default(TODO)
-    position Float      @default(0)
+  priority Priority   @default(MEDIUM)
+  status   TaskStatus @default(TODO)
+  position Float      @default(0)
 
-    startDate DateTime?
-    dueDate   DateTime?
+  startDate DateTime?
+  dueDate   DateTime?
 
-    checklists  TaskChecklist[]
-    comments    TaskComment[]
-    attachments Attachment[]    @relation("TaskAttachments")
+  checklists  TaskChecklist[]
+  comments    TaskComment[]
+  attachments Attachment[]    @relation("TaskAttachments")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([projectId])
-    @@index([workflowInstanceId])
-    @@index([assigneeId])
-    @@index([parentTaskId])
-    @@index([status])
-    @@index([priority])
-    @@index([dueDate])
-    @@index([projectId, status, position])
+  @@index([projectId])
+  @@index([workflowInstanceId])
+  @@index([assigneeId])
+  @@index([parentTaskId])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+  @@index([projectId, status, position])
 }
 
 model TaskChecklist {
-    id          String  @id @default(uuid())
-    taskId      String
-    task        Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
-    description String
-    isCompleted Boolean @default(false)
-    position    Float   @default(0)
+  id          String  @id @default(uuid())
+  taskId      String
+  task        Task    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  description String
+  isCompleted Boolean @default(false)
+  position    Float   @default(0)
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([taskId])
-    @@index([taskId, position])
+  @@index([taskId])
+  @@index([taskId, position])
 }
 
 model TaskComment {
-    id     String @id @default(uuid())
-    taskId String
-    task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
 
-    userId String
-    user   User   @relation("TaskCommentAuthor", fields: [userId], references: [id])
+  userId String
+  user   User   @relation("TaskCommentAuthor", fields: [userId], references: [id])
 
-    comment String @db.Text
+  comment String @db.Text
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-    @@index([taskId])
-    @@index([userId])
-    @@index([createdAt])
+  @@index([taskId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 // ==========================================
@@ -614,47 +614,47 @@ model TaskComment {
 // ==========================================
 
 enum ApprovalStatus {
-    DRAFT
-    INTERNAL_REVIEW
-    READY_FOR_CLIENT
-    PENDING_CLIENT_APPROVAL
-    REVISION_REQUIRED
-    REJECTED
-    APPROVED
-    SUPERSEDED
+  DRAFT
+  INTERNAL_REVIEW
+  READY_FOR_CLIENT
+  PENDING_CLIENT_APPROVAL
+  REVISION_REQUIRED
+  REJECTED
+  APPROVED
+  SUPERSEDED
 }
 
 model Deliverable {
-    id          String         @id @default(uuid())
-    projectId   String
-    project     Project        @relation(fields: [projectId], references: [id])
-    name        String
-    version     String         @default("1.0")
-    description String?        @db.Text
-    fileUrl     String? // Untuk file utama
-    status      ApprovalStatus @default(DRAFT)
+  id          String         @id @default(uuid())
+  projectId   String
+  project     Project        @relation(fields: [projectId], references: [id])
+  name        String
+  version     String         @default("1.0")
+  description String?        @db.Text
+  fileUrl     String? // Untuk file utama
+  status      ApprovalStatus @default(DRAFT)
 
-    approvalRequests ApprovalRequest[]
-    attachments      Attachment[]      @relation("DeliverableAttachments")
+  approvalRequests ApprovalRequest[]
+  attachments      Attachment[]      @relation("DeliverableAttachments")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ApprovalRequest {
-    id            String      @id @default(uuid())
-    deliverableId String
-    deliverable   Deliverable @relation(fields: [deliverableId], references: [id])
+  id            String      @id @default(uuid())
+  deliverableId String
+  deliverable   Deliverable @relation(fields: [deliverableId], references: [id])
 
-    clientId   String? // Jika di-approve oleh level client
-    approverId String? // ID ContactPerson client
-    approver   ContactPerson? @relation(fields: [approverId], references: [id])
+  clientId   String? // Jika di-approve oleh level client
+  approverId String? // ID ContactPerson client
+  approver   ContactPerson? @relation(fields: [approverId], references: [id])
 
-    status   ApprovalStatus @default(PENDING_CLIENT_APPROVAL)
-    feedback String?        @db.Text // Comment/Revisi dari client
+  status   ApprovalStatus @default(PENDING_CLIENT_APPROVAL)
+  feedback String?        @db.Text // Comment/Revisi dari client
 
-    requestedAt DateTime  @default(now())
-    respondedAt DateTime?
+  requestedAt DateTime  @default(now())
+  respondedAt DateTime?
 }
 
 // ==========================================
@@ -662,52 +662,52 @@ model ApprovalRequest {
 // ==========================================
 
 model Invoice {
-    id        String   @id @default(uuid())
-    invoiceNo String   @unique
-    clientId  String
-    client    Client   @relation(fields: [clientId], references: [id])
-    amount    Decimal  @db.Decimal(15, 2)
-    dueDate   DateTime
-    status    String // UNPAID, PAID, OVERDUE, PARTIAL
-    fileUrl   String?
+  id        String   @id @default(uuid())
+  invoiceNo String   @unique
+  clientId  String
+  client    Client   @relation(fields: [clientId], references: [id])
+  amount    Decimal  @db.Decimal(15, 2)
+  dueDate   DateTime
+  status    String // UNPAID, PAID, OVERDUE, PARTIAL
+  fileUrl   String?
 
-    payments  Payment[]
-    createdAt DateTime  @default(now())
+  payments  Payment[]
+  createdAt DateTime  @default(now())
 }
 
 model Payment {
-    id            String   @id @default(uuid())
-    paymentNo     String   @unique
-    invoiceId     String
-    invoice       Invoice  @relation(fields: [invoiceId], references: [id])
-    amountPaid    Decimal  @db.Decimal(15, 2)
-    paymentDate   DateTime
-    paymentMethod String // Transfer, Credit Card, dll
-    reference     String? // Bukti transfer
-    status        String // PENDING, VERIFIED, REJECTED
+  id            String   @id @default(uuid())
+  paymentNo     String   @unique
+  invoiceId     String
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
+  amountPaid    Decimal  @db.Decimal(15, 2)
+  paymentDate   DateTime
+  paymentMethod String // Transfer, Credit Card, dll
+  reference     String? // Bukti transfer
+  status        String // PENDING, VERIFIED, REJECTED
 
-    createdAt DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 model RecurringBilling {
-    id          String   @id @default(uuid())
-    contractId  String
-    contract    Contract @relation(fields: [contractId], references: [id])
-    amount      Decimal  @db.Decimal(15, 2)
-    frequency   String // MONTHLY, QUARTERLY, ANNUALLY
-    nextRunDate DateTime
-    isActive    Boolean  @default(true)
+  id          String   @id @default(uuid())
+  contractId  String
+  contract    Contract @relation(fields: [contractId], references: [id])
+  amount      Decimal  @db.Decimal(15, 2)
+  frequency   String // MONTHLY, QUARTERLY, ANNUALLY
+  nextRunDate DateTime
+  isActive    Boolean  @default(true)
 }
 
 model PerformanceMetric {
-    id         String   @id @default(uuid())
-    projectId  String
-    project    Project  @relation(fields: [projectId], references: [id])
-    platform   String // Google Ads, Meta, GA4, TikTok, SEO
-    metricDate DateTime // Tanggal data ditarik
-    metrics    Json // Simpan performa { impressions: 1000, clicks: 50, ROAS: 3.5 }
+  id         String   @id @default(uuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id])
+  platform   String // Google Ads, Meta, GA4, TikTok, SEO
+  metricDate DateTime // Tanggal data ditarik
+  metrics    Json // Simpan performa { impressions: 1000, clicks: 50, ROAS: 3.5 }
 
-    createdAt DateTime @default(now())
+  createdAt DateTime @default(now())
 }
 
 // ==========================================
@@ -715,40 +715,48 @@ model PerformanceMetric {
 // ==========================================
 
 model Attachment {
-    id       String @id @default(uuid())
-    fileName String
-    fileUrl  String
-    fileType String // PDF, JPG, DOCX
-    fileSize Int // Size in bytes
+  id       String @id @default(uuid())
+  fileName String
+  fileUrl  String
+  fileType String
+  fileSize Int
 
-    // Polymorphic relations (Opsional, diisi salah satu sesuai tempat upload)
-    leadId String?
-    lead   Lead?   @relation("LeadAttachments", fields: [leadId], references: [id])
+  publicId     String?
+  resourceType String?
 
-    taskId String?
-    task   Task?   @relation("TaskAttachments", fields: [taskId], references: [id])
+  leadId String?
+  lead   Lead?   @relation("LeadAttachments", fields: [leadId], references: [id])
 
-    deliverableId String?
-    deliverable   Deliverable? @relation("DeliverableAttachments", fields: [deliverableId], references: [id])
+  taskId String?
+  task   Task?   @relation("TaskAttachments", fields: [taskId], references: [id], onDelete: Cascade)
 
-    contractId String?
-    contract   Contract? @relation("ContractAttachments", fields: [contractId], references: [id])
+  deliverableId String?
+  deliverable   Deliverable? @relation("DeliverableAttachments", fields: [deliverableId], references: [id])
 
-    uploadedById String
-    uploadedBy   User   @relation("UploadedAttachments", fields: [uploadedById], references: [id])
+  contractId String?
+  contract   Contract? @relation("ContractAttachments", fields: [contractId], references: [id])
 
-    createdAt DateTime @default(now())
+  uploadedById String
+  uploadedBy   User   @relation("UploadedAttachments", fields: [uploadedById], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([taskId])
+  @@index([leadId])
+  @@index([deliverableId])
+  @@index([contractId])
+  @@index([uploadedById])
 }
 
 model SupportTicket {
-    id          String @id @default(uuid())
-    ticketNo    String @unique
-    clientId    String
-    client      Client @relation(fields: [clientId], references: [id])
-    subject     String
-    description String @db.Text
-    status      String // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  id          String @id @default(uuid())
+  ticketNo    String @unique
+  clientId    String
+  client      Client @relation(fields: [clientId], references: [id])
+  subject     String
+  description String @db.Text
+  status      String // OPEN, IN_PROGRESS, RESOLVED, CLOSED
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

@@ -1,0 +1,267 @@
+import { AccessScope, Prisma } from "@prisma/client";
+import { injectable } from "tsyringe";
+import { CloudinaryService } from "../../../common/cloudinary.service";
+import { AccessScopeService } from "../../../helpers/access-scope.service";
+import { ApiError } from "../../../utils/api-error";
+import { PrismaService } from "../../prisma/prisma.service";
+
+@injectable()
+export class TaskAttachmentService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly accessScopeService: AccessScopeService,
+    private readonly cloudinaryService: CloudinaryService,
+  ) {}
+
+  private async getActorRoleCodes(actorId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: actorId },
+      select: {
+        roles: {
+          select: {
+            role: {
+              select: {
+                code: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      throw new ApiError("User tidak ditemukan", 404);
+    }
+
+    return user.roles.map((item) => item.role.code);
+  }
+
+  private async buildTaskAccessWhere(
+    actorId: string,
+    permission: string,
+  ): Promise<Prisma.TaskWhereInput> {
+    const scope = await this.accessScopeService.getPermissionScope(
+      actorId,
+      permission,
+    );
+
+    if (scope === AccessScope.ALL) {
+      return {};
+    }
+
+    const roles = await this.getActorRoleCodes(actorId);
+
+    if (roles.includes("PROJECT_MANAGER")) {
+      return {
+        project: {
+          projectManagerId: actorId,
+        },
+      };
+    }
+
+    return {
+      assigneeId: actorId,
+    };
+  }
+
+  private async getAccessibleTask(
+    taskId: string,
+    actorId: string,
+    permission: string,
+  ) {
+    const accessWhere = await this.buildTaskAccessWhere(actorId, permission);
+
+    const task = await this.prisma.task.findFirst({
+      where: {
+        id: taskId,
+        ...accessWhere,
+      },
+      select: {
+        id: true,
+        taskCode: true,
+        title: true,
+      },
+    });
+
+    if (!task) {
+      throw new ApiError("Task tidak ditemukan atau tidak dapat diakses", 404);
+    }
+
+    return task;
+  }
+
+  async getAll(taskId: string, actorId: string) {
+    await this.getAccessibleTask(taskId, actorId, "task.read");
+
+    return this.prisma.attachment.findMany({
+      where: {
+        taskId,
+      },
+      include: {
+        uploadedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  }
+
+  async create(taskId: string, actorId: string, file: Express.Multer.File) {
+    const task = await this.getAccessibleTask(
+      taskId,
+      actorId,
+      "task.attachment.create",
+    );
+
+    const uploadResult = await this.cloudinaryService.uploadBuffer(
+      file,
+      `digital-marketing-erp/tasks/${taskId}`,
+    );
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const attachment = await tx.attachment.create({
+          data: {
+            fileName: file.originalname,
+            fileUrl: uploadResult.secure_url,
+            fileType: file.mimetype,
+            fileSize: file.size,
+            publicId: uploadResult.public_id,
+            resourceType: uploadResult.resource_type,
+            taskId,
+            uploadedById: actorId,
+          },
+          include: {
+            uploadedBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
+            },
+          },
+        });
+
+        await tx.auditLog.create({
+          data: {
+            userId: actorId,
+            action: "CREATE",
+            entity: "TaskAttachment",
+            entityId: attachment.id,
+            details: {
+              taskId,
+              taskCode: task.taskCode,
+              fileName: attachment.fileName,
+              fileUrl: attachment.fileUrl,
+            },
+          },
+        });
+
+        return attachment;
+      });
+    } catch (error) {
+      if (uploadResult.public_id) {
+        await this.cloudinaryService.deleteFile(
+          uploadResult.public_id,
+          this.normalizeResourceType(uploadResult.resource_type),
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  async delete(id: string, actorId: string) {
+    const attachment = await this.prisma.attachment.findUnique({
+      where: { id },
+      include: {
+        task: {
+          select: {
+            id: true,
+            taskCode: true,
+            projectId: true,
+            assigneeId: true,
+            project: {
+              select: {
+                projectManagerId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!attachment || !attachment.task) {
+      throw new ApiError("Attachment task tidak ditemukan", 404);
+    }
+
+    const accessWhere = await this.buildTaskAccessWhere(
+      actorId,
+      "task.attachment.delete",
+    );
+
+    const accessibleTask = await this.prisma.task.findFirst({
+      where: {
+        id: attachment.task.id,
+        ...accessWhere,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!accessibleTask) {
+      throw new ApiError("Attachment tidak dapat diakses", 404);
+    }
+
+    if (attachment.publicId) {
+      await this.cloudinaryService.deleteFile(
+        attachment.publicId,
+        this.normalizeResourceType(attachment.resourceType),
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: "DELETE",
+          entity: "TaskAttachment",
+          entityId: attachment.id,
+          details: {
+            taskId: attachment.taskId,
+            fileName: attachment.fileName,
+          },
+        },
+      });
+
+      await tx.attachment.delete({
+        where: { id },
+      });
+
+      return {
+        message: "Attachment berhasil dihapus",
+      };
+    });
+  }
+
+  private normalizeResourceType(
+    resourceType?: string | null,
+  ): "image" | "video" | "raw" {
+    if (resourceType === "video") {
+      return "video";
+    }
+
+    if (resourceType === "raw") {
+      return "raw";
+    }
+
+    return "image";
+  }
+}

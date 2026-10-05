@@ -546,6 +546,19 @@ export async function seedPermissions(prisma: PrismaClient) {
       action: "delete",
       description: "Menghapus komentar task",
     },
+
+    {
+      code: "task.attachment.create",
+      module: "task",
+      action: "create",
+      description: "Menambahkan attachment ke task",
+    },
+    {
+      code: "task.attachment.delete",
+      module: "task",
+      action: "delete",
+      description: "Menghapus attachment task",
+    },
   ];
 
   for (const permission of permissions) {
