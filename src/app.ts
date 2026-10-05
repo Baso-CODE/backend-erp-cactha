@@ -21,6 +21,8 @@ import { ProjectRouter } from "./modules/project/project.router";
 import { ProposalRouter } from "./modules/proposal/proposal.router";
 import { QuotationRouter } from "./modules/quotation/quotation.router";
 import { RbacRouter } from "./modules/rbac/rbac.router";
+import { TaskChecklistRoute } from "./modules/task/route/task-checklist.route";
+import { TaskRoute } from "./modules/task/route/task.route";
 import { WorkflowTemplateRouter } from "./modules/workflow-template/workflow-template.route";
 
 export default class App {
@@ -72,6 +74,8 @@ export default class App {
     const workflowTemplateRouter = container.resolve(WorkflowTemplateRouter);
     const projectRouter = container.resolve(ProjectRouter);
     const projectServiceRouter = container.resolve(ProjectServiceRouter);
+    const taskRoute = container.resolve(TaskRoute);
+    const taskChecklistRoute = container.resolve(TaskChecklistRoute);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -89,6 +93,8 @@ export default class App {
     this.app.use("/workflow-templates", workflowTemplateRouter.getRouter());
     this.app.use("/projects", projectRouter.getRouter());
     this.app.use("/project-services", projectServiceRouter.getRouter());
+    this.app.use("/tasks", taskRoute.router);
+    this.app.use("/task-checklists", taskChecklistRoute.router);
   }
 
   private handleError(): void {

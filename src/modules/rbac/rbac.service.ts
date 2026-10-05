@@ -98,7 +98,7 @@ export class RbacService {
             leadsManaged: true,
             clientsManaged: true,
             projectsManaged: true,
-            tasksAssigned: true,
+            assignedTasks: true,
           },
         },
       },
