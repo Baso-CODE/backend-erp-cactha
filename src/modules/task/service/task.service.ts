@@ -873,6 +873,35 @@ export class TaskService {
     });
   }
 
+  async getActivity(id: string, actorId: string) {
+    await this.getAccessibleTask(id, actorId, "task.read");
+
+    return this.prisma.auditLog.findMany({
+      where: {
+        entity: "Task",
+        entityId: id,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      select: {
+        id: true,
+        action: true,
+        entity: true,
+        entityId: true,
+        details: true,
+        createdAt: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+  }
+
   async delete(id: string, actorId: string) {
     const task = await this.getAccessibleTask(id, actorId, "task.delete");
 

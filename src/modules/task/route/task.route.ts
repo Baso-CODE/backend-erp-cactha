@@ -33,6 +33,12 @@ export class TaskRoute {
     );
 
     this.router.get(
+      "/:id/activity",
+      requirePermissions("task.read"),
+      this.taskController.getActivity,
+    );
+
+    this.router.get(
       "/:id",
       requirePermissions("task.read"),
       this.taskController.getById,

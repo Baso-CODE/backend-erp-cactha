@@ -117,4 +117,22 @@ export class TaskController {
       next(error);
     }
   };
+
+  getActivity = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const actorId = (req as any).user.id;
+
+      const id = getStringParam(req.params.id);
+
+      const data = await this.taskService.getActivity(id, actorId);
+
+      return res.status(200).json({
+        success: true,
+        message: "Activity task berhasil diambil",
+        data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }
