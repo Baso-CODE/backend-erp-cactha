@@ -9,10 +9,8 @@
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "prepare": "husky",
-    
     "postinstall": "prisma skills sync || exit 0"
   },
-  
   "keywords": [],
   "author": "Baso",
   "license": "ISC",
@@ -47,7 +45,7 @@
     "multer": "^2.4.0",
     "mysql2": "^3.22.3",
     "next-auth": "^4.24.12",
-    "node-cron": "^4.2.1",
+    "node-cron": "^4.6.0",
     "nodemailer": "^6.9.16",
     "qrcode-terminal": "^0.12.0",
     "reflect-metadata": "^0.2.2",

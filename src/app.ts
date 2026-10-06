@@ -7,6 +7,7 @@ import "reflect-metadata";
 import { container } from "tsyringe";
 import { env } from "./config";
 
+import { initializeNotificationCron } from "./cron/notification.cron";
 import { errorMiddleware } from "./middleware/error.middleware";
 import { globalLimiter } from "./middleware/rateLimiter.middleware";
 import { ActivityRouter } from "./modules/activity/activity.router";
@@ -16,6 +17,7 @@ import { ContactPersonRouter } from "./modules/contact-person/contact-person.rou
 import { ContractRouter } from "./modules/contract/contract.route";
 import { LeadRouter } from "./modules/lead/lead.router";
 import { MasterServiceRouter } from "./modules/master-service/master-service.router";
+import { NotificationRouter } from "./modules/notification/notification.router";
 import { ProjectServiceRouter } from "./modules/project-service/project-service.route";
 import { ProjectRouter } from "./modules/project/project.router";
 import { ProposalRouter } from "./modules/proposal/proposal.router";
@@ -78,6 +80,7 @@ export default class App {
     const taskChecklistRoute = container.resolve(TaskChecklistRoute);
     const taskCommentRoute = container.resolve(TaskCommentRoute);
     const taskAttachmentRoute = container.resolve(TaskAttachmentRoute);
+    const notificationRouter = container.resolve(NotificationRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -99,6 +102,7 @@ export default class App {
     this.app.use("/", taskChecklistRoute.router);
     this.app.use("/", taskCommentRoute.router);
     this.app.use("/", taskAttachmentRoute.router);
+    this.app.use("/notifications", notificationRouter.getRouter());
   }
 
   private handleError(): void {
@@ -119,7 +123,8 @@ export default class App {
     this.app.listen(env().PORT, () => {
       console.log(`  ➜  [API] Local:   http://localhost:${env().PORT}`);
       try {
-        // initializeCronJobs();
+        initializeNotificationCron();
+        console.log("✅ Notification cron berhasil diinisialisasi");
       } catch (error) {
         console.error("❌ Gagal menginisialisasi Cron Jobs:", error);
       }
