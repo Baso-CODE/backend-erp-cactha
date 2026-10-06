@@ -2,6 +2,7 @@ import { AccessScope, Priority, Prisma, TaskStatus } from "@prisma/client";
 import { inject, injectable } from "tsyringe";
 import { AccessScopeService } from "../../../helpers/access-scope.service";
 import { ApiError } from "../../../utils/api-error";
+import { NotificationService } from "../../notification/notification.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateTaskDTO } from "../dto/create-task.dto";
 import { MoveTaskDTO } from "../dto/move-task.dto";
@@ -156,6 +157,9 @@ export class TaskService {
 
     @inject(AccessScopeService)
     private readonly accessScopeService: AccessScopeService,
+
+    @inject(NotificationService)
+    private readonly notificationService: NotificationService,
   ) {}
 
   private async getActorRoleCodes(actorId: string) {
@@ -586,6 +590,7 @@ export class TaskService {
       });
 
       const position = (lastTask?.position ?? 0) + 1024;
+
       const task = await tx.task.create({
         data: {
           taskCode,
@@ -603,6 +608,25 @@ export class TaskService {
         },
         include: taskInclude,
       });
+
+      if (task.assigneeId && task.assigneeId !== actorId) {
+        await this.notificationService.create(
+          {
+            recipientId: task.assigneeId,
+            type: "TASK_ASSIGNED",
+            title: "Task baru ditugaskan",
+            message: `Anda ditugaskan ke ${task.taskCode} - ${task.title}`,
+            entity: "Task",
+            entityId: task.id,
+            actionUrl: "/internal/tasks",
+            metadata: {
+              taskCode: task.taskCode,
+              projectId: task.projectId,
+            },
+          },
+          tx,
+        );
+      }
 
       await tx.auditLog.create({
         data: {
@@ -701,7 +725,6 @@ export class TaskService {
           entityId: id,
           details: {
             type: "TASK_UPDATE",
-
             before: {
               title: task.title,
               description: task.description,
@@ -716,7 +739,6 @@ export class TaskService {
               startDate: task.startDate?.toISOString() ?? null,
               dueDate: task.dueDate?.toISOString() ?? null,
             },
-
             after: {
               title: updated.title,
               description: updated.description,
@@ -735,9 +757,57 @@ export class TaskService {
         },
       });
 
+      if (
+        updated.assigneeId &&
+        updated.assigneeId !== task.assigneeId &&
+        updated.assigneeId !== actorId
+      ) {
+        await this.notificationService.create(
+          {
+            recipientId: updated.assigneeId,
+            type: "TASK_ASSIGNED",
+            title: "Task ditugaskan kepada Anda",
+            message: `Anda ditugaskan ke ${updated.taskCode} - ${updated.title}`,
+            entity: "Task",
+            entityId: updated.id,
+            actionUrl: "/internal/tasks",
+            metadata: {
+              taskCode: updated.taskCode,
+              projectId: updated.projectId,
+            },
+          },
+          tx,
+        );
+      }
+
+      if (
+        updated.status !== task.status &&
+        updated.assigneeId &&
+        updated.assigneeId !== actorId
+      ) {
+        await this.notificationService.create(
+          {
+            recipientId: updated.assigneeId,
+            type: "TASK_STATUS_CHANGED",
+            title: "Status task berubah",
+            message: `${updated.taskCode} berubah dari ${task.status} menjadi ${updated.status}`,
+            entity: "Task",
+            entityId: updated.id,
+            actionUrl: "/internal/tasks",
+            metadata: {
+              taskCode: updated.taskCode,
+              fromStatus: task.status,
+              toStatus: updated.status,
+            },
+          },
+          tx,
+        );
+      }
+
       return updated;
     });
   }
+
   async move(id: string, actorId: string, dto: MoveTaskDTO) {
     const currentTask = await this.getAccessibleTask(
       id,
@@ -901,6 +971,30 @@ export class TaskService {
           },
         },
       });
+
+      if (
+        task.status !== currentTask.status &&
+        task.assigneeId &&
+        task.assigneeId !== actorId
+      ) {
+        await this.notificationService.create(
+          {
+            recipientId: task.assigneeId,
+            type: "TASK_STATUS_CHANGED",
+            title: "Status task berubah",
+            message: `${task.taskCode} berubah dari ${currentTask.status} menjadi ${task.status}`,
+            entity: "Task",
+            entityId: task.id,
+            actionUrl: "/internal/tasks",
+            metadata: {
+              taskCode: task.taskCode,
+              fromStatus: currentTask.status,
+              toStatus: task.status,
+            },
+          },
+          tx,
+        );
+      }
 
       return task;
     });

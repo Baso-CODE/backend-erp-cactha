@@ -41,14 +41,15 @@ model User {
   roles UserRole[]
 
   // Relasi sebagai PIC / Owner
-  leadsManaged        Lead[]        @relation("SalesAssignee")
-  clientsManaged      Client[]      @relation("AccountManager")
-  projectsManaged     Project[]     @relation("ProjectManager")
-  activitiesDone      Activity[]    @relation("ActivityPerformer")
+  leadsManaged        Lead[]         @relation("SalesAssignee")
+  clientsManaged      Client[]       @relation("AccountManager")
+  projectsManaged     Project[]      @relation("ProjectManager")
+  activitiesDone      Activity[]     @relation("ActivityPerformer")
   auditLogs           AuditLog[]
-  uploadedAttachments Attachment[]  @relation("UploadedAttachments")
-  assignedTasks       Task[]        @relation("TaskAssignee")
-  taskComments        TaskComment[] @relation("TaskCommentAuthor")
+  uploadedAttachments Attachment[]   @relation("UploadedAttachments")
+  assignedTasks       Task[]         @relation("TaskAssignee")
+  taskComments        TaskComment[]  @relation("TaskCommentAuthor")
+  notifications       Notification[]
 
   @@index([isActive])
 }
@@ -759,4 +760,49 @@ model SupportTicket {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_STATUS_CHANGED
+  TASK_COMMENTED
+  TASK_DUE_SOON
+
+  PROJECT_UPDATED
+  DELIVERABLE_READY
+  APPROVAL_REQUESTED
+  APPROVAL_RESPONDED
+
+  SYSTEM
+}
+
+model Notification {
+  id String @id @default(uuid())
+
+  recipientId String
+  recipient   User   @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  type NotificationType
+
+  title   String
+  message String @db.Text
+
+  entity   String?
+  entityId String?
+
+  actionUrl String?
+
+  isRead Boolean   @default(false)
+  readAt DateTime?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([recipientId])
+  @@index([recipientId, isRead])
+  @@index([type])
+  @@index([entity, entityId])
+  @@index([createdAt])
 }

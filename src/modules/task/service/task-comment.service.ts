@@ -3,6 +3,7 @@ import { inject, injectable } from "tsyringe";
 
 import { AccessScopeService } from "../../../helpers/access-scope.service";
 import { ApiError } from "../../../utils/api-error";
+import { NotificationService } from "../../notification/notification.service";
 import { PrismaService } from "../../prisma/prisma.service";
 import { CreateTaskCommentDTO } from "../dto/create-task-comment.dto";
 import { UpdateTaskCommentDTO } from "../dto/update-task-comment.dto";
@@ -25,6 +26,9 @@ export class TaskCommentService {
 
     @inject(AccessScopeService)
     private readonly accessScopeService: AccessScopeService,
+
+    @inject(NotificationService)
+    private readonly notificationService: NotificationService,
   ) {}
 
   private async getActorRoleCodes(actorId: string) {
@@ -96,6 +100,11 @@ export class TaskCommentService {
         title: true,
         projectId: true,
         assigneeId: true,
+        project: {
+          select: {
+            projectManagerId: true,
+          },
+        },
       },
     });
 
@@ -168,7 +177,11 @@ export class TaskCommentService {
   }
 
   async create(taskId: string, actorId: string, dto: CreateTaskCommentDTO) {
-    await this.getAccessibleTask(taskId, actorId, "task.comment.create");
+    const task = await this.getAccessibleTask(
+      taskId,
+      actorId,
+      "task.comment.create",
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const comment = await tx.taskComment.create({
@@ -194,10 +207,43 @@ export class TaskCommentService {
         },
       });
 
+      const recipients = new Set<string>();
+
+      if (task.assigneeId && task.assigneeId !== actorId) {
+        recipients.add(task.assigneeId);
+      }
+
+      if (
+        task.project.projectManagerId &&
+        task.project.projectManagerId !== actorId
+      ) {
+        recipients.add(task.project.projectManagerId);
+      }
+
+      for (const recipientId of recipients) {
+        await this.notificationService.create(
+          {
+            recipientId,
+            type: "TASK_COMMENTED",
+            title: "Komentar baru pada task",
+            message: `${comment.user.name} mengomentari ${task.taskCode} - ${task.title}`,
+            entity: "Task",
+            entityId: task.id,
+            actionUrl: "/internal/tasks",
+            metadata: {
+              taskCode: task.taskCode,
+              projectId: task.projectId,
+              commentId: comment.id,
+              commenterId: actorId,
+            },
+          },
+          tx,
+        );
+      }
+
       return comment;
     });
   }
-
   async update(id: string, actorId: string, dto: UpdateTaskCommentDTO) {
     const existing = await this.getCommentForMutation(
       id,
