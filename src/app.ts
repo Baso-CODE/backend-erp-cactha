@@ -38,12 +38,13 @@ export default class App {
   }
 
   private configure(): void {
+    this.app.set("trust proxy", 1);
+
     this.app.use(helmet());
 
-    this.app.use(globalLimiter);
     this.app.use(
       cors({
-        origin: process.env.FRONTEND_URL || "http://localhost:3000",
+        origin: env().CORS_ORIGIN,
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowedHeaders: [
@@ -55,13 +56,10 @@ export default class App {
       }),
     );
 
-    // 1. Pasang cookie-parser lebih awal agar req.cookies langsung siap dibaca
+    this.app.use(globalLimiter);
     this.app.use(cookieParser());
-
-    // 2. Parser JSON untuk body request
     this.app.use(json({ limit: "50mb" }));
   }
-
   private routes(): void {
     const rbacRouter = container.resolve(RbacRouter);
     const authRouter = container.resolve(AuthRouter);

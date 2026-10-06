@@ -1,8 +1,5 @@
-// auth.controller.ts
-
 import { NextFunction, Request, Response } from "express";
 import { injectable } from "tsyringe";
-
 import { AuthService } from "./auth.service";
 
 @injectable()
@@ -21,6 +18,11 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
+        domain:
+          process.env.NODE_ENV === "production"
+            ? ".cathadigital.com"
+            : undefined,
+        path: "/",
         maxAge: 24 * 60 * 60 * 1000,
       });
 
@@ -43,7 +45,6 @@ export class AuthController {
   ): Promise<void> => {
     try {
       const authUser = (req as any).user;
-
       const user = await this.authService.getCurrentUser(authUser.id);
 
       res.status(200).json({
@@ -65,6 +66,11 @@ export class AuthController {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "lax",
+        domain:
+          process.env.NODE_ENV === "production"
+            ? ".cathadigital.com"
+            : undefined,
+        path: "/",
       });
 
       res.status(200).json({
