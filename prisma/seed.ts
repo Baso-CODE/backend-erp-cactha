@@ -6,6 +6,7 @@ import { PrismaClient } from "@prisma/client";
 import { seedPermissions } from "./seeds/permission.seed";
 import { seedRolePermissions } from "./seeds/role-permissions.seed";
 import { seedRoles } from "./seeds/roles.seed";
+import { seedUsers } from "./seeds/users.seed";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -41,6 +42,7 @@ async function main() {
   await seedRoles(prisma);
   await seedPermissions(prisma);
   await seedRolePermissions(prisma);
+  await seedUsers(prisma);
 
   console.log("Database seed selesai.");
 }
