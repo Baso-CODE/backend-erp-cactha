@@ -1,6 +1,7 @@
 import { plainToInstance } from "class-transformer";
 import { IsNotEmpty, IsNumber, IsString, validateSync } from "class-validator";
 import { config as dotenvConfig } from "dotenv";
+
 dotenvConfig();
 
 class EnvConfig {
@@ -18,18 +19,6 @@ class EnvConfig {
 
   @IsNotEmpty()
   @IsString()
-  readonly NEXTAUTH_SECRET!: string;
-
-  @IsNotEmpty()
-  @IsString()
-  readonly MAIL_USER!: string;
-
-  @IsNotEmpty()
-  @IsString()
-  readonly MAIL_PASSWORD!: string;
-
-  @IsNotEmpty()
-  @IsString()
   readonly CLOUDINARY_CLOUD_NAME!: string;
 
   @IsNotEmpty()
@@ -40,7 +29,7 @@ class EnvConfig {
   @IsString()
   readonly CLOUDINARY_API_SECRET!: string;
 
-  @IsNotEmpty() // Tambahkan ini agar wajib diisi di .env
+  @IsNotEmpty()
   @IsString()
   readonly CORS_ORIGIN!: string;
 }
