@@ -119,6 +119,12 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
 
     { permission: "task.attachment.create", scope: AccessScope.ALL },
     { permission: "task.attachment.delete", scope: AccessScope.ALL },
+
+    { permission: "admin.team.read", scope: AccessScope.ALL },
+    { permission: "admin.team.create", scope: AccessScope.ALL },
+    { permission: "admin.team.update", scope: AccessScope.ALL },
+    { permission: "admin.team.delete", scope: AccessScope.ALL },
+    { permission: "admin.team.manage_member", scope: AccessScope.ALL },
   ],
 
   ADMIN: [
@@ -328,6 +334,8 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
 
     { permission: "task.attachment.create", scope: AccessScope.OWN },
     { permission: "task.attachment.delete", scope: AccessScope.OWN },
+
+    { permission: "admin.team.read", scope: AccessScope.ALL },
   ],
   SPECIALIST: [
     { permission: "task.read", scope: AccessScope.OWN },
