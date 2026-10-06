@@ -22,19 +22,21 @@ const adapter = new PrismaMariaDb({
   password: decodeURIComponent(url.password),
   database: url.pathname.replace(/^\//, ""),
   connectionLimit: 5,
-  acquireTimeout: 10000,
-  connectTimeout: 5000,
+  connectTimeout: 15000,
+  acquireTimeout: 30000,
   idleTimeout: 300,
 });
 
 const prisma = new PrismaClient({
   adapter,
+  log: ["info", "warn", "error"],
 });
 
 async function main() {
   console.log("Menjalankan database seed...");
 
   await prisma.$connect();
+  console.log("Prisma connected.");
 
   await seedRoles(prisma);
   await seedPermissions(prisma);
