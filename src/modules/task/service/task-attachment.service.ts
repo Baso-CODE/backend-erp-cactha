@@ -14,30 +14,7 @@ export class TaskAttachmentService {
     private readonly cloudinaryService: CloudinaryService,
   ) {}
 
-  private async getActorRoleCodes(actorId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: actorId },
-      select: {
-        roles: {
-          select: {
-            role: {
-              select: {
-                code: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!user) {
-      throw new ApiError("User tidak ditemukan", 404);
-    }
-
-    return user.roles.map((item) => item.role.code);
-  }
-
-  private async buildTaskAccessWhere(
+  private async buildAccessWhere(
     actorId: string,
     permission: string,
   ): Promise<Prisma.TaskWhereInput> {
@@ -46,23 +23,40 @@ export class TaskAttachmentService {
       permission,
     );
 
-    if (scope === AccessScope.ALL) {
-      return {};
+    switch (scope) {
+      case AccessScope.ALL:
+        return {};
+
+      case AccessScope.TEAM: {
+        const teamMemberIds =
+          await this.accessScopeService.getTeamMemberIds(actorId);
+
+        return {
+          assigneeId: {
+            in: teamMemberIds,
+          },
+        };
+      }
+
+      case AccessScope.PROJECT:
+        return {
+          project: {
+            projectManagerId: actorId,
+          },
+        };
+
+      case AccessScope.OWN:
+        return {
+          assigneeId: actorId,
+        };
+
+      case AccessScope.CLIENT:
+      default:
+        throw new ApiError(
+          `Scope ${scope} belum didukung untuk resource Task`,
+          403,
+        );
     }
-
-    const roles = await this.getActorRoleCodes(actorId);
-
-    if (roles.includes("PROJECT_MANAGER")) {
-      return {
-        project: {
-          projectManagerId: actorId,
-        },
-      };
-    }
-
-    return {
-      assigneeId: actorId,
-    };
   }
 
   private async getAccessibleTask(
@@ -70,7 +64,7 @@ export class TaskAttachmentService {
     actorId: string,
     permission: string,
   ) {
-    const accessWhere = await this.buildTaskAccessWhere(actorId, permission);
+    const accessWhere = await this.buildAccessWhere(actorId, permission);
 
     const task = await this.prisma.task.findFirst({
       where: {
@@ -205,7 +199,7 @@ export class TaskAttachmentService {
       throw new ApiError("Attachment task tidak ditemukan", 404);
     }
 
-    const accessWhere = await this.buildTaskAccessWhere(
+    const accessWhere = await this.buildAccessWhere(
       actorId,
       "task.attachment.delete",
     );

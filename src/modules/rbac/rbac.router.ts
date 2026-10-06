@@ -5,6 +5,7 @@ import { requirePermissions } from "../../middleware/permission.middleware";
 import { validateBody } from "../../middleware/validateBody.middleware";
 import { validateQuery } from "../../middleware/validateQuery.middleware";
 import { CreateUserDTO } from "./dto/create-user.dto";
+import { QueryUserOptionsDTO } from "./dto/query-user-options.dto";
 import { QueryUserDTO } from "./dto/query-user.dto";
 import { UpdateUserDTO } from "./dto/update-user.dto";
 import { RbacController } from "./rbac.controller";
@@ -45,6 +46,13 @@ export class RbacRouter {
       requirePermissions("admin.user.read"),
       validateQuery(QueryUserDTO),
       this.rbacController.getAllUsers,
+    );
+
+    this.router.get(
+      "/users/options",
+      authenticateToken,
+      validateQuery(QueryUserOptionsDTO),
+      this.rbacController.getUserOptions,
     );
 
     this.router.get(

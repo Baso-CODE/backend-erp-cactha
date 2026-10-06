@@ -4,6 +4,7 @@ import { AccessScopeService } from "../../../helpers/access-scope.service";
 import { ApiError } from "../../../utils/api-error";
 import { NotificationService } from "../../notification/notification.service";
 import { PrismaService } from "../../prisma/prisma.service";
+import { UserEligibilityService } from "../../rbac/user-eligibility.service";
 import { CreateTaskDTO } from "../dto/create-task.dto";
 import { MoveTaskDTO } from "../dto/move-task.dto";
 import { QueryTaskDTO, SortOrder, TaskSortBy } from "../dto/query-task.dto";
@@ -160,30 +161,10 @@ export class TaskService {
 
     @inject(NotificationService)
     private readonly notificationService: NotificationService,
+
+    @inject(UserEligibilityService)
+    private readonly userEligibilityService: UserEligibilityService,
   ) {}
-
-  private async getActorRoleCodes(actorId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: actorId },
-      select: {
-        roles: {
-          select: {
-            role: {
-              select: {
-                code: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!user) {
-      throw new ApiError("User tidak ditemukan", 404);
-    }
-
-    return user.roles.map((item) => item.role.code);
-  }
 
   private async buildAccessWhere(
     actorId: string,
@@ -194,25 +175,41 @@ export class TaskService {
       permission,
     );
 
-    if (scope === AccessScope.ALL) {
-      return {};
+    switch (scope) {
+      case AccessScope.ALL:
+        return {};
+
+      case AccessScope.TEAM: {
+        const teamMemberIds =
+          await this.accessScopeService.getTeamMemberIds(actorId);
+
+        return {
+          assigneeId: {
+            in: teamMemberIds,
+          },
+        };
+      }
+
+      case AccessScope.PROJECT:
+        return {
+          project: {
+            projectManagerId: actorId,
+          },
+        };
+
+      case AccessScope.OWN:
+        return {
+          assigneeId: actorId,
+        };
+
+      case AccessScope.CLIENT:
+      default:
+        throw new ApiError(
+          `Scope ${scope} belum didukung untuk resource Task`,
+          403,
+        );
     }
-
-    const roles = await this.getActorRoleCodes(actorId);
-
-    if (roles.includes("PROJECT_MANAGER")) {
-      return {
-        project: {
-          projectManagerId: actorId,
-        },
-      };
-    }
-
-    return {
-      assigneeId: actorId,
-    };
   }
-
   private async getAccessibleTask(
     id: string,
     actorId: string,
@@ -289,23 +286,9 @@ export class TaskService {
   }
 
   private async validateAssignee(assigneeId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: assigneeId },
-      select: {
-        id: true,
-        isActive: true,
-      },
+    return this.userEligibilityService.validateUserEligibility(assigneeId, {
+      permissions: ["task.read", "task.update"],
     });
-
-    if (!user) {
-      throw new ApiError("Assignee tidak ditemukan", 404);
-    }
-
-    if (!user.isActive) {
-      throw new ApiError("Assignee tidak aktif", 400);
-    }
-
-    return user;
   }
 
   private async validateParentTask(
