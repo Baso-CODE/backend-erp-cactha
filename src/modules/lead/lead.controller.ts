@@ -42,7 +42,9 @@ export class LeadController {
   ): Promise<void> => {
     try {
       const id = getStringParam(req.params.id);
-      const lead = await this.leadService.getLeadById(id);
+      const user = (req as any).user;
+
+      const lead = await this.leadService.getLeadById(id, user.id);
 
       res.status(200).json({
         success: true,

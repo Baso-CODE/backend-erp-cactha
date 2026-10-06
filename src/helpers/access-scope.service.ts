@@ -71,4 +71,34 @@ export class AccessScopeService {
 
     return AccessScope.OWN;
   }
+
+  async getTeamMemberIds(userId: string): Promise<string[]> {
+    const memberships = await this.prisma.teamMember.findMany({
+      where: {
+        userId,
+        team: {
+          isActive: true,
+        },
+      },
+      select: {
+        team: {
+          select: {
+            members: {
+              select: {
+                userId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return [
+      ...new Set(
+        memberships.flatMap((membership) =>
+          membership.team.members.map((member) => member.userId),
+        ),
+      ),
+    ];
+  }
 }

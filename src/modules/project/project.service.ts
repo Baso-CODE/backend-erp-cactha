@@ -4,6 +4,7 @@ import { injectable } from "tsyringe";
 import { AccessScopeService } from "../../helpers/access-scope.service";
 import { ApiError } from "../../utils/api-error";
 import { PrismaService } from "../prisma/prisma.service";
+import { UserEligibilityService } from "../rbac/user-eligibility.service";
 import { CreateProjectDTO } from "./dto/create-project.dto";
 import { QueryProjectDTO } from "./dto/query-project.dto";
 import { UpdateProjectDTO } from "./dto/update-project.dto";
@@ -13,6 +14,7 @@ export class ProjectService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly accessScopeService: AccessScopeService,
+    private readonly userEligibilityService: UserEligibilityService,
   ) {}
 
   private async getAccessWhere(
@@ -24,17 +26,38 @@ export class ProjectService {
       permission,
     );
 
-    if (scope === "ALL") {
-      return {};
-    }
+    switch (scope) {
+      case "ALL":
+        return {};
 
-    if (scope === "OWN") {
-      return {
-        projectManagerId: actorId,
-      };
-    }
+      case "TEAM": {
+        const teamMemberIds =
+          await this.accessScopeService.getTeamMemberIds(actorId);
 
-    throw new ApiError("Scope akses project belum didukung.", 403);
+        return {
+          projectManagerId: {
+            in: teamMemberIds,
+          },
+        };
+      }
+
+      case "OWN":
+        return {
+          projectManagerId: actorId,
+        };
+
+      case "PROJECT":
+        return {
+          projectManagerId: actorId,
+        };
+
+      case "CLIENT":
+      default:
+        throw new ApiError(
+          `Scope ${scope} belum didukung untuk resource Project`,
+          403,
+        );
+    }
   }
 
   private async getAccessibleProject(
@@ -128,21 +151,12 @@ export class ProjectService {
   private async validateProjectManager(
     projectManagerId: string,
   ): Promise<void> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: projectManagerId },
-      select: {
-        id: true,
-        isActive: true,
+    await this.userEligibilityService.validateUserEligibility(
+      projectManagerId,
+      {
+        permissions: ["project.read", "project.update"],
       },
-    });
-
-    if (!user) {
-      throw new ApiError("Project manager tidak ditemukan.", 404);
-    }
-
-    if (!user.isActive) {
-      throw new ApiError("Project manager tidak aktif.", 400);
-    }
+    );
   }
 
   private validateDates(

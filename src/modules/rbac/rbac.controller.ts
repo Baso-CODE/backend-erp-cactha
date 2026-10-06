@@ -2,12 +2,17 @@ import { plainToInstance } from "class-transformer";
 import { validateOrReject } from "class-validator";
 import { NextFunction, Request, Response } from "express";
 import { injectable } from "tsyringe";
+import { QueryUserOptionsDTO } from "./dto/query-user-options.dto";
 import { QueryUserDTO } from "./dto/query-user.dto";
 import { RbacService } from "./rbac.service";
+import { UserEligibilityService } from "./user-eligibility.service";
 
 @injectable()
 export class RbacController {
-  constructor(private readonly rbacService: RbacService) {}
+  constructor(
+    private readonly rbacService: RbacService,
+    private readonly userEligibilityService: UserEligibilityService,
+  ) {}
 
   // ==========================================
   // USER MANAGEMENT
@@ -228,6 +233,23 @@ export class RbacController {
       const period = (req.query.period as any) || "7days";
       const chartData = await this.rbacService.getTeamPerformance(period);
       res.status(200).json({ success: true, data: chartData });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getUserOptions = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const query = plainToInstance(QueryUserOptionsDTO, req.query);
+
+      await validateOrReject(query);
+
+      const data = await this.userEligibilityService.getEligibleUsers(query);
+
+      res.status(200).json({
+        success: true,
+        data,
+      });
     } catch (error) {
       next(error);
     }

@@ -50,6 +50,7 @@ model User {
   assignedTasks       Task[]         @relation("TaskAssignee")
   taskComments        TaskComment[]  @relation("TaskCommentAuthor")
   notifications       Notification[]
+  teamMemberships     TeamMember[]
 
   @@index([isActive])
 }
@@ -805,4 +806,31 @@ model Notification {
   @@index([type])
   @@index([entity, entityId])
   @@index([createdAt])
+}
+
+model Team {
+  id          String  @id @default(uuid())
+  name        String
+  description String?
+  isActive    Boolean @default(true)
+
+  members TeamMember[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model TeamMember {
+  teamId String
+  userId String
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  joinedAt DateTime @default(now())
+
+  @@id([teamId, userId])
+  @@index([userId])
 }

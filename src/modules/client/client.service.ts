@@ -2,7 +2,9 @@ import { Prisma } from "@prisma/client";
 import { injectable } from "tsyringe";
 
 import { AccessScopeService } from "../../helpers/access-scope.service";
+import { ApiError } from "../../utils/api-error";
 import { PrismaService } from "../prisma/prisma.service";
+import { UserEligibilityService } from "../rbac/user-eligibility.service";
 import { CreateClientDTO } from "./dto/create-client.dto";
 import { QueryClientDTO } from "./dto/query-client.dto";
 import { UpdateClientDTO } from "./dto/update-client.dto";
@@ -12,45 +14,52 @@ export class ClientService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly accessScopeService: AccessScopeService,
+    private readonly userEligibilityService: UserEligibilityService,
   ) {}
 
   private async validateAccountManager(userId: string) {
-    const user = await this.prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        id: true,
-        isActive: true,
-        roles: {
-          select: {
-            role: {
-              select: {
-                code: true,
-              },
-            },
-          },
-        },
-      },
+    return this.userEligibilityService.validateUserEligibility(userId, {
+      permissions: ["client.read", "client.update"],
     });
+  }
 
-    if (!user) {
-      throw new Error("Account Manager tidak ditemukan.");
-    }
-
-    if (!user.isActive) {
-      throw new Error("Account Manager tidak aktif.");
-    }
-
-    const hasAccountManagerRole = user.roles.some(
-      ({ role }) => role.code === "ACCOUNT_MANAGER",
+  private async getAccessWhere(
+    actorId: string,
+    permission: string,
+  ): Promise<Prisma.ClientWhereInput> {
+    const scope = await this.accessScopeService.getPermissionScope(
+      actorId,
+      permission,
     );
 
-    if (!hasAccountManagerRole) {
-      throw new Error("User yang dipilih bukan Account Manager.");
-    }
+    switch (scope) {
+      case "ALL":
+        return {};
 
-    return user;
+      case "TEAM": {
+        const teamMemberIds =
+          await this.accessScopeService.getTeamMemberIds(actorId);
+
+        return {
+          accountManagerId: {
+            in: teamMemberIds,
+          },
+        };
+      }
+
+      case "OWN":
+        return {
+          accountManagerId: actorId,
+        };
+
+      case "PROJECT":
+      case "CLIENT":
+      default:
+        throw new ApiError(
+          `Scope ${scope} belum didukung untuk resource Client`,
+          403,
+        );
+    }
   }
 
   async getAllClients(query: QueryClientDTO, actorId: string) {
@@ -58,21 +67,11 @@ export class ClientService {
 
     const skip = (page - 1) * limit;
 
-    const scope = await this.accessScopeService.getPermissionScope(
-      actorId,
-      "client.read",
-    );
-
-    const accessFilter: Prisma.ClientWhereInput =
-      scope === "ALL"
-        ? {}
-        : {
-            accountManagerId: actorId,
-          };
+    const accessWhere = await this.getAccessWhere(actorId, "client.read");
 
     const where: Prisma.ClientWhereInput = {
       AND: [
-        accessFilter,
+        accessWhere,
         {
           ...(status && {
             status,
@@ -165,18 +164,14 @@ export class ClientService {
   }
 
   async getClientById(id: string, actorId: string) {
-    const scope = await this.accessScopeService.getPermissionScope(
-      actorId,
-      "client.read",
-    );
+    const accessWhere = await this.getAccessWhere(actorId, "client.read");
 
     const client = await this.prisma.client.findFirst({
       where: {
         id,
-        ...(scope !== "ALL" && {
-          accountManagerId: actorId,
-        }),
+        ...accessWhere,
       },
+
       include: {
         accountManager: {
           select: {
@@ -326,17 +321,12 @@ export class ClientService {
     });
   }
   async updateClient(id: string, data: UpdateClientDTO, actorId: string) {
-    const scope = await this.accessScopeService.getPermissionScope(
-      actorId,
-      "client.update",
-    );
+    const accessWhere = await this.getAccessWhere(actorId, "client.read");
 
     const existing = await this.prisma.client.findFirst({
       where: {
         id,
-        ...(scope !== "ALL" && {
-          accountManagerId: actorId,
-        }),
+        ...accessWhere,
       },
     });
 
@@ -428,17 +418,11 @@ export class ClientService {
   }
 
   async deleteClient(id: string, actorId: string) {
-    const scope = await this.accessScopeService.getPermissionScope(
-      actorId,
-      "client.delete",
-    );
-
+    const accessWhere = await this.getAccessWhere(actorId, "client.read");
     const existing = await this.prisma.client.findFirst({
       where: {
         id,
-        ...(scope !== "ALL" && {
-          accountManagerId: actorId,
-        }),
+        ...accessWhere,
       },
       include: {
         _count: {
