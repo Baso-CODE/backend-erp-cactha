@@ -27,6 +27,7 @@ import { TaskAttachmentRoute } from "./modules/task/route/task-attachment.route"
 import { TaskChecklistRoute } from "./modules/task/route/task-checklist.route";
 import { TaskCommentRoute } from "./modules/task/route/task-comment.route";
 import { TaskRoute } from "./modules/task/route/task.route";
+import { TeamRouter } from "./modules/team/team.router";
 import { WorkflowTemplateRouter } from "./modules/workflow-template/workflow-template.route";
 
 export default class App {
@@ -81,6 +82,7 @@ export default class App {
     const taskCommentRoute = container.resolve(TaskCommentRoute);
     const taskAttachmentRoute = container.resolve(TaskAttachmentRoute);
     const notificationRouter = container.resolve(NotificationRouter);
+    const teamRouter = container.resolve(TeamRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -103,6 +105,7 @@ export default class App {
     this.app.use("/", taskCommentRoute.router);
     this.app.use("/", taskAttachmentRoute.router);
     this.app.use("/notifications", notificationRouter.getRouter());
+    this.app.use("/teams", teamRouter.router);
   }
 
   private handleError(): void {
