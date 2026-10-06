@@ -183,11 +183,13 @@ export class TaskCommentService {
       await tx.auditLog.create({
         data: {
           userId: actorId,
-          action: "CREATE",
-          entity: "TaskComment",
-          entityId: comment.id,
+          action: "COMMENT_CREATE",
+          entity: "Task",
+          entityId: taskId,
           details: {
-            taskId,
+            type: "COMMENT",
+            commentId: comment.id,
+            comment: comment.comment,
           },
         },
       });
@@ -197,11 +199,17 @@ export class TaskCommentService {
   }
 
   async update(id: string, actorId: string, dto: UpdateTaskCommentDTO) {
-    await this.getCommentForMutation(id, actorId, "task.comment.update");
+    const existing = await this.getCommentForMutation(
+      id,
+      actorId,
+      "task.comment.update",
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const comment = await tx.taskComment.update({
-        where: { id },
+        where: {
+          id,
+        },
         data: {
           comment: dto.comment.trim(),
         },
@@ -211,11 +219,18 @@ export class TaskCommentService {
       await tx.auditLog.create({
         data: {
           userId: actorId,
-          action: "UPDATE",
-          entity: "TaskComment",
-          entityId: id,
+          action: "COMMENT_UPDATE",
+          entity: "Task",
+          entityId: comment.taskId,
           details: {
-            taskId: comment.taskId,
+            type: "COMMENT",
+            commentId: comment.id,
+            before: {
+              comment: existing.comment,
+            },
+            after: {
+              comment: comment.comment,
+            },
           },
         },
       });
@@ -235,17 +250,21 @@ export class TaskCommentService {
       await tx.auditLog.create({
         data: {
           userId: actorId,
-          action: "DELETE",
-          entity: "TaskComment",
-          entityId: comment.id,
+          action: "COMMENT_DELETE",
+          entity: "Task",
+          entityId: comment.taskId,
           details: {
-            taskId: comment.taskId,
+            type: "COMMENT",
+            commentId: comment.id,
+            comment: comment.comment,
           },
         },
       });
 
       await tx.taskComment.delete({
-        where: { id },
+        where: {
+          id,
+        },
       });
 
       return {
