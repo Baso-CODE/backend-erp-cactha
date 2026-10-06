@@ -21,6 +21,10 @@ const adapter = new PrismaMariaDb({
   user: decodeURIComponent(url.username),
   password: decodeURIComponent(url.password),
   database: url.pathname.replace(/^\//, ""),
+  connectionLimit: 5,
+  acquireTimeout: 10000,
+  connectTimeout: 5000,
+  idleTimeout: 300,
 });
 
 const prisma = new PrismaClient({
@@ -30,10 +34,11 @@ const prisma = new PrismaClient({
 async function main() {
   console.log("Menjalankan database seed...");
 
+  await prisma.$connect();
+
   await seedRoles(prisma);
   await seedPermissions(prisma);
   await seedRolePermissions(prisma);
-  // await seedUsers(prisma);
 
   console.log("Database seed selesai.");
 }
@@ -41,7 +46,7 @@ async function main() {
 main()
   .catch((error) => {
     console.error("Seed gagal:", error);
-    process.exit(1);
+    process.exitCode = 1;
   })
   .finally(async () => {
     await prisma.$disconnect();

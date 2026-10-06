@@ -5,15 +5,14 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc && npm run copy-files",
-    "seed": "ts-node -r dotenv/config prisma/seed.ts",
+    "seed": "bun ./prisma/seed.ts",
     "start": "node dist/index.js",
     "dev": "nodemon src/index.ts",
     "prepare": "husky",
+    
     "postinstall": "prisma skills sync || exit 0"
   },
-  "prisma": {
-    "seed": "bun ./prisma/seed.ts"
-  },
+  
   "keywords": [],
   "author": "Baso",
   "license": "ISC",

@@ -6,13 +6,25 @@ import { injectable, singleton } from "tsyringe";
 @injectable()
 export class PrismaService extends PrismaClient {
   constructor() {
-    const connectionString = process.env.DATABASE_URL;
+    const databaseUrl = process.env.DATABASE_URL;
 
-    if (!connectionString) {
-      throw new Error("DATABASE_URL is not defined in .env file");
+    if (!databaseUrl) {
+      throw new Error("DATABASE_URL is not defined");
     }
 
-    const adapter = new PrismaMariaDb(connectionString);
+    const url = new URL(databaseUrl);
+
+    const adapter = new PrismaMariaDb({
+      host: url.hostname,
+      port: Number(url.port || 3306),
+      user: decodeURIComponent(url.username),
+      password: decodeURIComponent(url.password),
+      database: url.pathname.replace(/^\//, ""),
+      connectionLimit: 10,
+      acquireTimeout: 10000,
+      connectTimeout: 5000,
+      idleTimeout: 300,
+    });
 
     super({
       adapter,
@@ -23,11 +35,9 @@ export class PrismaService extends PrismaClient {
   }
 
   private setupShutdownHandler(): void {
-    const gracefulShutdown = async (signal: string): Promise<void> => {
+    const gracefulShutdown = async (signal: string) => {
       console.log(`\nReceived ${signal}. Disconnecting Prisma...`);
-
       await this.$disconnect();
-
       process.exit(0);
     };
 
