@@ -4,6 +4,7 @@ import { inject, injectable } from "tsyringe";
 import { getStringParam } from "../../../helpers/request.helper";
 import { CreateTaskDTO } from "../dto/create-task.dto";
 import { MoveTaskDTO } from "../dto/move-task.dto";
+import { QueryTaskActivityDTO } from "../dto/query-task-activity.dto";
 import { QueryTaskDTO } from "../dto/query-task.dto";
 import { UpdateTaskDTO } from "../dto/update-task.dto";
 import { TaskService } from "../service/task.service";
@@ -124,12 +125,19 @@ export class TaskController {
 
       const id = getStringParam(req.params.id);
 
-      const data = await this.taskService.getActivity(id, actorId);
+      const query = (req as any).validatedQuery as QueryTaskActivityDTO;
+
+      const result = await this.taskService.getActivity(
+        id,
+        actorId,
+        query.page,
+        query.limit,
+      );
 
       return res.status(200).json({
         success: true,
         message: "Activity task berhasil diambil",
-        data,
+        ...result,
       });
     } catch (error) {
       next(error);

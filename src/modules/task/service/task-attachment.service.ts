@@ -1,5 +1,6 @@
 import { AccessScope, Prisma } from "@prisma/client";
 import { injectable } from "tsyringe";
+
 import { CloudinaryService } from "../../../common/cloudinary.service";
 import { AccessScopeService } from "../../../helpers/access-scope.service";
 import { ApiError } from "../../../utils/api-error";
@@ -151,14 +152,17 @@ export class TaskAttachmentService {
         await tx.auditLog.create({
           data: {
             userId: actorId,
-            action: "CREATE",
-            entity: "TaskAttachment",
-            entityId: attachment.id,
+            action: "ATTACHMENT_CREATE",
+            entity: "Task",
+            entityId: taskId,
             details: {
-              taskId,
+              type: "ATTACHMENT",
+              attachmentId: attachment.id,
               taskCode: task.taskCode,
               fileName: attachment.fileName,
               fileUrl: attachment.fileUrl,
+              fileType: attachment.fileType,
+              fileSize: attachment.fileSize,
             },
           },
         });
@@ -231,18 +235,24 @@ export class TaskAttachmentService {
       await tx.auditLog.create({
         data: {
           userId: actorId,
-          action: "DELETE",
-          entity: "TaskAttachment",
-          entityId: attachment.id,
+          action: "ATTACHMENT_DELETE",
+          entity: "Task",
+          entityId: attachment.taskId!,
           details: {
-            taskId: attachment.taskId,
+            type: "ATTACHMENT",
+            attachmentId: attachment.id,
             fileName: attachment.fileName,
+            fileUrl: attachment.fileUrl,
+            fileType: attachment.fileType,
+            fileSize: attachment.fileSize,
           },
         },
       });
 
       await tx.attachment.delete({
-        where: { id },
+        where: {
+          id,
+        },
       });
 
       return {

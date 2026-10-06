@@ -8,6 +8,7 @@ import { validateQuery } from "../../../middleware/validateQuery.middleware";
 import { TaskController } from "../controller/task.controller";
 import { CreateTaskDTO } from "../dto/create-task.dto";
 import { MoveTaskDTO } from "../dto/move-task.dto";
+import { QueryTaskActivityDTO } from "../dto/query-task-activity.dto";
 import { QueryTaskDTO } from "../dto/query-task.dto";
 import { UpdateTaskDTO } from "../dto/update-task.dto";
 
@@ -35,9 +36,9 @@ export class TaskRoute {
     this.router.get(
       "/:id/activity",
       requirePermissions("task.read"),
+      validateQuery(QueryTaskActivityDTO),
       this.taskController.getActivity,
     );
-
     this.router.get(
       "/:id",
       requirePermissions("task.read"),

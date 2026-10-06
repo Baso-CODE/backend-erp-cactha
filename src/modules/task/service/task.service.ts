@@ -655,7 +655,9 @@ export class TaskService {
 
     return this.prisma.$transaction(async (tx) => {
       const updated = await tx.task.update({
-        where: { id },
+        where: {
+          id,
+        },
         data: {
           ...(dto.title !== undefined && {
             title: dto.title.trim(),
@@ -697,14 +699,45 @@ export class TaskService {
           action: "UPDATE",
           entity: "Task",
           entityId: id,
-          details: dto as Prisma.InputJsonValue,
+          details: {
+            type: "TASK_UPDATE",
+
+            before: {
+              title: task.title,
+              description: task.description,
+              workflowInstanceId: task.workflowInstanceId,
+              assigneeId: task.assigneeId,
+              assigneeName: task.assignee?.name ?? null,
+              parentTaskId: task.parentTaskId,
+              parentTaskTitle: task.parentTask?.title ?? null,
+              priority: task.priority,
+              status: task.status,
+              position: task.position,
+              startDate: task.startDate?.toISOString() ?? null,
+              dueDate: task.dueDate?.toISOString() ?? null,
+            },
+
+            after: {
+              title: updated.title,
+              description: updated.description,
+              workflowInstanceId: updated.workflowInstanceId,
+              assigneeId: updated.assigneeId,
+              assigneeName: updated.assignee?.name ?? null,
+              parentTaskId: updated.parentTaskId,
+              parentTaskTitle: updated.parentTask?.title ?? null,
+              priority: updated.priority,
+              status: updated.status,
+              position: updated.position,
+              startDate: updated.startDate?.toISOString() ?? null,
+              dueDate: updated.dueDate?.toISOString() ?? null,
+            },
+          },
         },
       });
 
       return updated;
     });
   }
-
   async move(id: string, actorId: string, dto: MoveTaskDTO) {
     const currentTask = await this.getAccessibleTask(
       id,
@@ -873,33 +906,55 @@ export class TaskService {
     });
   }
 
-  async getActivity(id: string, actorId: string) {
+  async getActivity(id: string, actorId: string, page = 1, limit = 20) {
     await this.getAccessibleTask(id, actorId, "task.read");
 
-    return this.prisma.auditLog.findMany({
-      where: {
-        entity: "Task",
-        entityId: id,
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-      select: {
-        id: true,
-        action: true,
-        entity: true,
-        entityId: true,
-        details: true,
-        createdAt: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.AuditLogWhereInput = {
+      entity: "Task",
+      entityId: id,
+    };
+
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.auditLog.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: {
+          createdAt: "desc",
+        },
+        select: {
+          id: true,
+          action: true,
+          entity: true,
+          entityId: true,
+          details: true,
+          createdAt: true,
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
         },
+      }),
+
+      this.prisma.auditLog.count({
+        where,
+      }),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
-    });
+    };
   }
 
   async delete(id: string, actorId: string) {

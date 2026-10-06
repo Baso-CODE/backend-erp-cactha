@@ -177,12 +177,15 @@ export class TaskChecklistService {
       await tx.auditLog.create({
         data: {
           userId: actorId,
-          action: "CREATE",
-          entity: "TaskChecklist",
-          entityId: checklist.id,
+          action: "CHECKLIST_CREATE",
+          entity: "Task",
+          entityId: taskId,
           details: {
-            taskId,
+            type: "CHECKLIST",
+            checklistId: checklist.id,
             description: checklist.description,
+            isCompleted: checklist.isCompleted,
+            position: checklist.position,
           },
         },
       });
@@ -192,18 +195,26 @@ export class TaskChecklistService {
   }
 
   async update(id: string, actorId: string, dto: UpdateTaskChecklistDTO) {
-    await this.getAccessibleChecklist(id, actorId, "task.checklist.update");
+    const existing = await this.getAccessibleChecklist(
+      id,
+      actorId,
+      "task.checklist.update",
+    );
 
     return this.prisma.$transaction(async (tx) => {
       const checklist = await tx.taskChecklist.update({
-        where: { id },
+        where: {
+          id,
+        },
         data: {
           ...(dto.description !== undefined && {
             description: dto.description.trim(),
           }),
+
           ...(dto.isCompleted !== undefined && {
             isCompleted: dto.isCompleted,
           }),
+
           ...(dto.position !== undefined && {
             position: dto.position,
           }),
@@ -213,10 +224,25 @@ export class TaskChecklistService {
       await tx.auditLog.create({
         data: {
           userId: actorId,
-          action: "UPDATE",
-          entity: "TaskChecklist",
-          entityId: id,
-          details: dto as Prisma.InputJsonValue,
+          action: "CHECKLIST_UPDATE",
+          entity: "Task",
+          entityId: existing.taskId,
+          details: {
+            type: "CHECKLIST",
+            checklistId: checklist.id,
+
+            before: {
+              description: existing.description,
+              isCompleted: existing.isCompleted,
+              position: existing.position,
+            },
+
+            after: {
+              description: checklist.description,
+              isCompleted: checklist.isCompleted,
+              position: checklist.position,
+            },
+          },
         },
       });
 
@@ -235,18 +261,23 @@ export class TaskChecklistService {
       await tx.auditLog.create({
         data: {
           userId: actorId,
-          action: "DELETE",
-          entity: "TaskChecklist",
-          entityId: checklist.id,
+          action: "CHECKLIST_DELETE",
+          entity: "Task",
+          entityId: checklist.taskId,
           details: {
-            taskId: checklist.taskId,
+            type: "CHECKLIST",
+            checklistId: checklist.id,
             description: checklist.description,
+            isCompleted: checklist.isCompleted,
+            position: checklist.position,
           },
         },
       });
 
       await tx.taskChecklist.delete({
-        where: { id },
+        where: {
+          id,
+        },
       });
 
       return {
