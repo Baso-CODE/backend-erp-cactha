@@ -2,6 +2,7 @@ import {
   ApprovalStatus,
   InvoiceStatus,
   PaymentStatus,
+  Prisma,
   ProjectStatus,
 } from "@prisma/client";
 import { injectable } from "tsyringe";
@@ -97,15 +98,15 @@ export class ClientDashboardService {
           clientId,
           status: {
             in: [
-              InvoiceStatus.UNPAID,
-              InvoiceStatus.PARTIAL,
+              InvoiceStatus.SENT,
+              InvoiceStatus.PARTIALLY_PAID,
               InvoiceStatus.OVERDUE,
             ],
           },
         },
         select: {
           id: true,
-          amount: true,
+          totalAmount: true,
           status: true,
           dueDate: true,
           payments: {
@@ -152,24 +153,49 @@ export class ClientDashboardService {
       }),
     ]);
 
-    const outstandingInvoices = invoices.length;
+    const now = new Date();
 
-    const overdueInvoices = invoices.filter(
-      (invoice) =>
-        invoice.status === InvoiceStatus.OVERDUE ||
-        invoice.dueDate < new Date(),
-    ).length;
-
-    const outstandingAmount = invoices.reduce((total, invoice) => {
-      const paid = invoice.payments.reduce(
-        (paymentTotal, payment) => paymentTotal + Number(payment.amountPaid),
-        0,
+    const invoiceSummaries = invoices.map((invoice) => {
+      const paidAmount = invoice.payments.reduce(
+        (total, payment) => total.add(payment.amountPaid),
+        new Prisma.Decimal(0),
       );
 
-      const balance = Math.max(Number(invoice.amount) - paid, 0);
+      const outstandingAmount = Prisma.Decimal.max(
+        invoice.totalAmount.sub(paidAmount),
+        new Prisma.Decimal(0),
+      );
+      const nonOverdueStatuses = new Set<InvoiceStatus>([
+        InvoiceStatus.DRAFT,
+        InvoiceStatus.CANCELLED,
+        InvoiceStatus.PAID,
+      ]);
 
-      return total + balance;
-    }, 0);
+      const isOverdue =
+        outstandingAmount.greaterThan(0) &&
+        invoice.dueDate < now &&
+        !nonOverdueStatuses.has(invoice.status);
+
+      return {
+        outstandingAmount,
+        isOverdue,
+      };
+    });
+
+    const outstandingInvoices = invoiceSummaries.filter((invoice) =>
+      invoice.outstandingAmount.greaterThan(0),
+    ).length;
+
+    const overdueInvoices = invoiceSummaries.filter(
+      (invoice) => invoice.isOverdue,
+    ).length;
+
+    const outstandingAmount = invoiceSummaries
+      .reduce(
+        (total, invoice) => total.add(invoice.outstandingAmount),
+        new Prisma.Decimal(0),
+      )
+      .toString();
 
     return {
       client: {
@@ -191,17 +217,21 @@ export class ClientDashboardService {
           active: activeProjects,
           completed: completedProjects,
         },
+
         approvals: {
           pending: pendingApprovals,
         },
+
         deliverables: {
           readyForClient: readyDeliverables,
         },
+
         invoices: {
           outstanding: outstandingInvoices,
           overdue: overdueInvoices,
           outstandingAmount,
         },
+
         support: {
           open: openSupportTickets,
         },
