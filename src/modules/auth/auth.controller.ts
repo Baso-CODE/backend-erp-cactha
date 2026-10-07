@@ -81,4 +81,26 @@ export class AuthController {
       next(error);
     }
   };
+
+  changePassword = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const authUser = (req as any).user;
+
+      const result = await this.authService.changePassword(
+        authUser.id,
+        req.body,
+      );
+
+      res.status(200).json({
+        success: true,
+        message: result.message,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

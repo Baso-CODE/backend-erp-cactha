@@ -12,6 +12,7 @@ import { errorMiddleware } from "./middleware/error.middleware";
 import { globalLimiter } from "./middleware/rateLimiter.middleware";
 import { ActivityRouter } from "./modules/activity/activity.router";
 import { AuthRouter } from "./modules/auth/auth.router";
+import { ClientPortalRouter } from "./modules/client-portal/client-portal.router";
 import { ClientRouter } from "./modules/client/client.route";
 import { ContactPersonRouter } from "./modules/contact-person/contact-person.route";
 import { ContractRouter } from "./modules/contract/contract.route";
@@ -83,6 +84,7 @@ export default class App {
     const taskAttachmentRoute = container.resolve(TaskAttachmentRoute);
     const notificationRouter = container.resolve(NotificationRouter);
     const teamRouter = container.resolve(TeamRouter);
+    const clientPortalRouter = container.resolve(ClientPortalRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -106,6 +108,7 @@ export default class App {
     this.app.use("/", taskAttachmentRoute.router);
     this.app.use("/notifications", notificationRouter.getRouter());
     this.app.use("/teams", teamRouter.router);
+    this.app.use("/client", clientPortalRouter.getRouter());
   }
 
   private handleError(): void {

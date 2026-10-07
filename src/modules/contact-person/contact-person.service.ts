@@ -2,6 +2,8 @@ import { Prisma } from "@prisma/client";
 import { injectable } from "tsyringe";
 
 import { AccessScopeService } from "../../helpers/access-scope.service";
+import { ApiError } from "../../utils/api-error";
+import { ClientPortalUserService } from "../client-portal/services/client-portal-user.service";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateContactPersonDTO } from "./dto/create-contact-person.dto";
 import { QueryContactPersonDTO } from "./dto/query-contact-person.dto";
@@ -12,6 +14,7 @@ export class ContactPersonService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly accessScopeService: AccessScopeService,
+    private readonly clientPortalUserService: ClientPortalUserService,
   ) {}
 
   private async getAccessibleClient(
@@ -201,6 +204,10 @@ export class ContactPersonService {
       "client.contact.create",
     );
 
+    if (data.userId) {
+      await this.clientPortalUserService.validatePortalUser(data.userId);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       if (data.isPrimary) {
         await tx.contactPerson.updateMany({
@@ -225,6 +232,7 @@ export class ContactPersonService {
           mobile: data.mobile,
           isPrimary: data.isPrimary ?? false,
           status: data.status ?? "ACTIVE",
+          userId: data.userId || null,
         },
         include: {
           client: {
@@ -232,6 +240,14 @@ export class ContactPersonService {
               id: true,
               clientCode: true,
               companyName: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              isActive: true,
             },
           },
         },
@@ -248,6 +264,7 @@ export class ContactPersonService {
             fullName: contact.fullName,
             email: contact.email,
             isPrimary: contact.isPrimary,
+            portalUserId: contact.userId,
           },
         },
       });
@@ -278,8 +295,9 @@ export class ContactPersonService {
     });
 
     if (!existing) {
-      throw new Error(
+      throw new ApiError(
         "Contact person tidak ditemukan atau Anda tidak memiliki akses.",
+        404,
       );
     }
 
@@ -291,6 +309,10 @@ export class ContactPersonService {
         actorId,
         "client.contact.update",
       );
+    }
+
+    if (data.userId) {
+      await this.clientPortalUserService.validatePortalUser(data.userId, id);
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -341,6 +363,9 @@ export class ContactPersonService {
           ...(data.status !== undefined && {
             status: data.status,
           }),
+          ...(data.userId !== undefined && {
+            userId: data.userId || null,
+          }),
         },
         include: {
           client: {
@@ -348,6 +373,14 @@ export class ContactPersonService {
               id: true,
               clientCode: true,
               companyName: true,
+            },
+          },
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              isActive: true,
             },
           },
         },
@@ -370,6 +403,7 @@ export class ContactPersonService {
               mobile: existing.mobile,
               isPrimary: existing.isPrimary,
               status: existing.status,
+              portalUserId: existing.userId,
             },
             after: {
               clientId: updated.clientId,
@@ -381,6 +415,7 @@ export class ContactPersonService {
               mobile: updated.mobile,
               isPrimary: updated.isPrimary,
               status: updated.status,
+              portalUserId: updated.userId,
             },
           },
         },

@@ -56,4 +56,8 @@ export class CreateContactPersonDTO {
   @IsEnum(ClientStatus)
   @IsOptional()
   status?: ClientStatus;
+
+  @IsOptional()
+  @IsString()
+  userId?: string;
 }

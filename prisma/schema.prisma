@@ -41,16 +41,19 @@ model User {
   roles UserRole[]
 
   // Relasi sebagai PIC / Owner
-  leadsManaged        Lead[]         @relation("SalesAssignee")
-  clientsManaged      Client[]       @relation("AccountManager")
-  projectsManaged     Project[]      @relation("ProjectManager")
-  activitiesDone      Activity[]     @relation("ActivityPerformer")
+  leadsManaged        Lead[]                 @relation("SalesAssignee")
+  clientsManaged      Client[]               @relation("AccountManager")
+  projectsManaged     Project[]              @relation("ProjectManager")
+  activitiesDone      Activity[]             @relation("ActivityPerformer")
   auditLogs           AuditLog[]
-  uploadedAttachments Attachment[]   @relation("UploadedAttachments")
-  assignedTasks       Task[]         @relation("TaskAssignee")
-  taskComments        TaskComment[]  @relation("TaskCommentAuthor")
+  uploadedAttachments Attachment[]           @relation("UploadedAttachments")
+  assignedTasks       Task[]                 @relation("TaskAssignee")
+  taskComments        TaskComment[]          @relation("TaskCommentAuthor")
   notifications       Notification[]
   teamMemberships     TeamMember[]
+  supportMessages     SupportTicketMessage[]
+
+  clientContact ContactPerson? @relation("ClientPortalUser")
 
   @@index([isActive])
 }
@@ -303,11 +306,12 @@ model Client {
   accountManagerId String
   accountManager   User   @relation("AccountManager", fields: [accountManagerId], references: [id])
 
-  contacts  ContactPerson[]
-  contracts Contract[]
-  projects  Project[]
-  tickets   SupportTicket[]
-  invoices  Invoice[]
+  contacts         ContactPerson[]
+  contracts        Contract[]
+  projects         Project[]
+  tickets          SupportTicket[]
+  invoices         Invoice[]
+  approvalRequests ApprovalRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -326,10 +330,17 @@ model ContactPerson {
   isPrimary  Boolean      @default(false)
   status     ClientStatus @default(ACTIVE)
 
+  userId String? @unique
+  user   User?   @relation("ClientPortalUser", fields: [userId], references: [id], onDelete: SetNull)
+
   approvalRequests ApprovalRequest[]
+  supportTickets   SupportTicket[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
 }
 
 enum ContractStatus {
@@ -459,6 +470,48 @@ enum ProjectStatus {
   CANCELLED
 }
 
+enum ProjectServiceStatus {
+  PLANNED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum AttachmentVisibility {
+  INTERNAL
+  CLIENT_PORTAL
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_CLIENT
+  RESOLVED
+  CLOSED
+}
+
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 model Project {
   id          String  @id @default(uuid())
   projectCode String  @unique
@@ -484,6 +537,8 @@ model Project {
   tasks              Task[]
   deliverables       Deliverable[]
   performanceMetrics PerformanceMetric[]
+  attachments        Attachment[]        @relation("ProjectAttachments")
+  supportTickets     SupportTicket[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -504,6 +559,8 @@ model ProjectService {
   masterServiceId String
   masterService   MasterService @relation(fields: [masterServiceId], references: [id])
 
+  status ProjectServiceStatus @default(PLANNED)
+
   startDate DateTime?
   endDate   DateTime?
 
@@ -514,6 +571,7 @@ model ProjectService {
 
   @@unique([projectId, masterServiceId])
   @@index([masterServiceId])
+  @@index([status])
 }
 
 // ==========================================
@@ -633,14 +691,22 @@ model Deliverable {
   name        String
   version     String         @default("1.0")
   description String?        @db.Text
-  fileUrl     String? // Untuk file utama
+  fileUrl     String?
   status      ApprovalStatus @default(DRAFT)
+
+  dueDate     DateTime?
+  submittedAt DateTime?
+  approvedAt  DateTime?
 
   approvalRequests ApprovalRequest[]
   attachments      Attachment[]      @relation("DeliverableAttachments")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([status])
+  @@index([dueDate])
 }
 
 model ApprovalRequest {
@@ -648,15 +714,22 @@ model ApprovalRequest {
   deliverableId String
   deliverable   Deliverable @relation(fields: [deliverableId], references: [id])
 
-  clientId   String? // Jika di-approve oleh level client
-  approverId String? // ID ContactPerson client
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  approverId String?
   approver   ContactPerson? @relation(fields: [approverId], references: [id])
 
   status   ApprovalStatus @default(PENDING_CLIENT_APPROVAL)
-  feedback String?        @db.Text // Comment/Revisi dari client
+  feedback String?        @db.Text
 
   requestedAt DateTime  @default(now())
   respondedAt DateTime?
+
+  @@index([deliverableId])
+  @@index([clientId])
+  @@index([approverId])
+  @@index([status])
 }
 
 // ==========================================
@@ -664,31 +737,41 @@ model ApprovalRequest {
 // ==========================================
 
 model Invoice {
-  id        String   @id @default(uuid())
-  invoiceNo String   @unique
+  id        String        @id @default(uuid())
+  invoiceNo String        @unique
   clientId  String
-  client    Client   @relation(fields: [clientId], references: [id])
-  amount    Decimal  @db.Decimal(15, 2)
+  client    Client        @relation(fields: [clientId], references: [id])
+  amount    Decimal       @db.Decimal(15, 2)
   dueDate   DateTime
-  status    String // UNPAID, PAID, OVERDUE, PARTIAL
+  status    InvoiceStatus @default(UNPAID)
   fileUrl   String?
 
-  payments  Payment[]
-  createdAt DateTime  @default(now())
+  payments Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([status])
+  @@index([dueDate])
 }
 
 model Payment {
-  id            String   @id @default(uuid())
-  paymentNo     String   @unique
+  id            String        @id @default(uuid())
+  paymentNo     String        @unique
   invoiceId     String
-  invoice       Invoice  @relation(fields: [invoiceId], references: [id])
-  amountPaid    Decimal  @db.Decimal(15, 2)
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id])
+  amountPaid    Decimal       @db.Decimal(15, 2)
   paymentDate   DateTime
-  paymentMethod String // Transfer, Credit Card, dll
-  reference     String? // Bukti transfer
-  status        String // PENDING, VERIFIED, REJECTED
+  paymentMethod String
+  reference     String?
+  status        PaymentStatus @default(PENDING)
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([status])
 }
 
 model RecurringBilling {
@@ -726,6 +809,11 @@ model Attachment {
   publicId     String?
   resourceType String?
 
+  visibility AttachmentVisibility @default(INTERNAL)
+
+  projectId String?
+  project   Project? @relation("ProjectAttachments", fields: [projectId], references: [id], onDelete: Cascade)
+
   leadId String?
   lead   Lead?   @relation("LeadAttachments", fields: [leadId], references: [id])
 
@@ -743,24 +831,61 @@ model Attachment {
 
   createdAt DateTime @default(now())
 
-  @@index([taskId])
+  @@index([projectId])
   @@index([leadId])
+  @@index([taskId])
   @@index([deliverableId])
   @@index([contractId])
   @@index([uploadedById])
+  @@index([visibility])
 }
 
 model SupportTicket {
-  id          String @id @default(uuid())
-  ticketNo    String @unique
-  clientId    String
-  client      Client @relation(fields: [clientId], references: [id])
+  id       String @id @default(uuid())
+  ticketNo String @unique
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  requesterId String
+  requester   ContactPerson @relation(fields: [requesterId], references: [id])
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id])
+
   subject     String
-  description String @db.Text
-  status      String // OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  description String                @db.Text
+  status      SupportTicketStatus   @default(OPEN)
+  priority    SupportTicketPriority @default(MEDIUM)
+
+  messages SupportTicketMessage[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([requesterId])
+  @@index([projectId])
+  @@index([status])
+  @@index([priority])
+}
+
+model SupportTicketMessage {
+  id String @id @default(uuid())
+
+  ticketId String
+  ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id])
+
+  message String @db.Text
+
+  createdAt DateTime @default(now())
+
+  @@index([ticketId])
+  @@index([authorId])
+  @@index([createdAt])
 }
 
 enum NotificationType {
