@@ -52,6 +52,7 @@ model User {
   notifications       Notification[]
   teamMemberships     TeamMember[]
   supportMessages     SupportTicketMessage[]
+  paymentsVerified    Payment[]              @relation("PaymentVerifier")
 
   clientContact ContactPerson? @relation("ClientPortalUser")
 
@@ -374,6 +375,7 @@ model Contract {
   renewalReminder Boolean        @default(false)
 
   projects          Project[]
+  invoices          Invoice[]
   recurringBillings RecurringBilling[]
   attachments       Attachment[]       @relation("ContractAttachments")
 
@@ -479,8 +481,9 @@ enum ProjectServiceStatus {
 }
 
 enum InvoiceStatus {
-  UNPAID
-  PARTIAL
+  DRAFT
+  SENT
+  PARTIALLY_PAID
   PAID
   OVERDUE
   CANCELLED
@@ -490,6 +493,22 @@ enum PaymentStatus {
   PENDING
   VERIFIED
   REJECTED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  CASH
+  CREDIT_CARD
+  VIRTUAL_ACCOUNT
+  E_WALLET
+  OTHER
+}
+
+enum RecurringBillingFrequency {
+  MONTHLY
+  QUARTERLY
+  SEMIANNUALLY
+  ANNUALLY
 }
 
 enum AttachmentVisibility {
@@ -539,6 +558,7 @@ model Project {
   performanceMetrics PerformanceMetric[]
   attachments        Attachment[]        @relation("ProjectAttachments")
   supportTickets     SupportTicket[]
+  invoices           Invoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -736,63 +756,151 @@ model ApprovalRequest {
 // PART 8: FINANCE & PERFORMANCE
 // ==========================================
 
-model Invoice {
-  id        String        @id @default(uuid())
-  invoiceNo String        @unique
-  clientId  String
-  client    Client        @relation(fields: [clientId], references: [id])
-  amount    Decimal       @db.Decimal(15, 2)
-  dueDate   DateTime
-  status    InvoiceStatus @default(UNPAID)
-  fileUrl   String?
+// ==========================================
+// PART 8: FINANCE & PERFORMANCE
+// ==========================================
 
+model Invoice {
+  id        String @id @default(uuid())
+  invoiceNo String @unique
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id])
+
+  contractId String?
+  contract   Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+
+  projectId String?
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  invoiceDate DateTime
+  dueDate     DateTime
+
+  currency String @default("IDR")
+
+  subtotal       Decimal @db.Decimal(15, 2)
+  discountAmount Decimal @default(0) @db.Decimal(15, 2)
+  taxAmount      Decimal @default(0) @db.Decimal(15, 2)
+  totalAmount    Decimal @db.Decimal(15, 2)
+
+  notes String? @db.Text
+
+  status InvoiceStatus @default(DRAFT)
+
+  fileUrl String?
+
+  sentAt      DateTime?
+  paidAt      DateTime?
+  cancelledAt DateTime?
+
+  items    InvoiceItem[]
   payments Payment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([clientId])
+  @@index([contractId])
+  @@index([projectId])
   @@index([status])
+  @@index([invoiceDate])
   @@index([dueDate])
+  @@index([clientId, status])
+}
+
+model InvoiceItem {
+  id String @id @default(uuid())
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  description String
+
+  quantity  Decimal @default(1) @db.Decimal(12, 2)
+  unitPrice Decimal @db.Decimal(15, 2)
+  lineTotal Decimal @db.Decimal(15, 2)
+
+  position Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([invoiceId])
+  @@index([invoiceId, position])
 }
 
 model Payment {
-  id            String        @id @default(uuid())
-  paymentNo     String        @unique
-  invoiceId     String
-  invoice       Invoice       @relation(fields: [invoiceId], references: [id])
-  amountPaid    Decimal       @db.Decimal(15, 2)
+  id        String @id @default(uuid())
+  paymentNo String @unique
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id])
+
+  amountPaid Decimal @db.Decimal(15, 2)
+
   paymentDate   DateTime
-  paymentMethod String
-  reference     String?
-  status        PaymentStatus @default(PENDING)
+  paymentMethod PaymentMethod
+
+  reference String?
+  proofUrl  String?
+  notes     String? @db.Text
+
+  status PaymentStatus @default(PENDING)
+
+  verifiedById String?
+  verifiedBy   User?   @relation("PaymentVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  verifiedAt      DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?   @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([invoiceId])
   @@index([status])
+  @@index([paymentDate])
+  @@index([verifiedById])
+  @@index([invoiceId, status])
 }
 
 model RecurringBilling {
-  id          String   @id @default(uuid())
-  contractId  String
-  contract    Contract @relation(fields: [contractId], references: [id])
-  amount      Decimal  @db.Decimal(15, 2)
-  frequency   String // MONTHLY, QUARTERLY, ANNUALLY
+  id String @id @default(uuid())
+
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id])
+
+  amount   Decimal @db.Decimal(15, 2)
+  currency String  @default("IDR")
+
+  frequency RecurringBillingFrequency
+
   nextRunDate DateTime
-  isActive    Boolean  @default(true)
+  lastRunDate DateTime?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([contractId])
+  @@index([nextRunDate])
+  @@index([isActive])
 }
 
 model PerformanceMetric {
-  id         String   @id @default(uuid())
-  projectId  String
-  project    Project  @relation(fields: [projectId], references: [id])
-  platform   String // Google Ads, Meta, GA4, TikTok, SEO
-  metricDate DateTime // Tanggal data ditarik
-  metrics    Json // Simpan performa { impressions: 1000, clicks: 50, ROAS: 3.5 }
+  id        String  @id @default(uuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id])
+
+  platform   String
+  metricDate DateTime
+  metrics    Json
 
   createdAt DateTime @default(now())
+
+  @@index([projectId])
+  @@index([metricDate])
 }
 
 // ==========================================

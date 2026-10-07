@@ -16,9 +16,11 @@ import { ClientPortalRouter } from "./modules/client-portal/client-portal.router
 import { ClientRouter } from "./modules/client/client.route";
 import { ContactPersonRouter } from "./modules/contact-person/contact-person.route";
 import { ContractRouter } from "./modules/contract/contract.route";
+import { InvoiceRouter } from "./modules/invoice/invoice.router";
 import { LeadRouter } from "./modules/lead/lead.router";
 import { MasterServiceRouter } from "./modules/master-service/master-service.router";
 import { NotificationRouter } from "./modules/notification/notification.router";
+import { PaymentRouter } from "./modules/payment/payment.route";
 import { ProjectServiceRouter } from "./modules/project-service/project-service.route";
 import { ProjectRouter } from "./modules/project/project.router";
 import { ProposalRouter } from "./modules/proposal/proposal.router";
@@ -85,6 +87,8 @@ export default class App {
     const notificationRouter = container.resolve(NotificationRouter);
     const teamRouter = container.resolve(TeamRouter);
     const clientPortalRouter = container.resolve(ClientPortalRouter);
+    const invoiceRouter = container.resolve(InvoiceRouter);
+    const paymentRouter = container.resolve(PaymentRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -109,6 +113,8 @@ export default class App {
     this.app.use("/notifications", notificationRouter.getRouter());
     this.app.use("/teams", teamRouter.router);
     this.app.use("/client", clientPortalRouter.getRouter());
+    this.app.use("/invoices", invoiceRouter.getRouter());
+    this.app.use("/payments", paymentRouter.getRouter());
   }
 
   private handleError(): void {
