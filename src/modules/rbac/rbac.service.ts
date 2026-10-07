@@ -9,6 +9,7 @@ import { CreateUserDTO } from "./dto/create-user.dto";
 import { QueryUserDTO } from "./dto/query-user.dto";
 import { UpdateRoleDTO } from "./dto/update-role.dto";
 import { UpdateUserDTO } from "./dto/update-user.dto";
+import { PermissionRegistryLoader } from "./permission-registry.loader";
 
 @injectable()
 export class RbacService {
@@ -492,12 +493,13 @@ export class RbacService {
     });
 
     if (!role) {
-      throw new Error("Role tidak ditemukan.");
+      throw new ApiError("Role tidak ditemukan.", 404);
     }
 
     if (role.code === "OWNER") {
-      throw new Error(
+      throw new ApiError(
         "Permission role OWNER tidak dapat diubah secara manual.",
+        400,
       );
     }
 
@@ -506,7 +508,7 @@ export class RbacService {
     ];
 
     if (uniquePermissionIds.length !== permissions.length) {
-      throw new Error("Permission tidak boleh duplikat.");
+      throw new ApiError("Permission tidak boleh duplikat.", 400);
     }
 
     const existingPermissions = await this.prisma.permission.findMany({
@@ -517,11 +519,49 @@ export class RbacService {
       },
       select: {
         id: true,
+        code: true,
       },
     });
 
     if (existingPermissions.length !== uniquePermissionIds.length) {
-      throw new Error("Satu atau lebih permission tidak valid.");
+      throw new ApiError("Satu atau lebih permission tidak valid.", 400);
+    }
+
+    const registry = PermissionRegistryLoader.load();
+
+    const registryMap = new Map(
+      registry.map((permission) => [permission.code, permission]),
+    );
+
+    const permissionCodeById = new Map(
+      existingPermissions.map((permission) => [permission.id, permission.code]),
+    );
+
+    const defaultScopes: AccessScope[] = [
+      AccessScope.OWN,
+      AccessScope.TEAM,
+      AccessScope.PROJECT,
+      AccessScope.CLIENT,
+      AccessScope.ALL,
+    ];
+
+    for (const item of permissions) {
+      const permissionCode = permissionCodeById.get(item.permissionId);
+
+      if (!permissionCode) {
+        throw new ApiError("Permission tidak valid.", 400);
+      }
+
+      const definition = registryMap.get(permissionCode);
+
+      const allowedScopes = definition?.allowedScopes ?? defaultScopes;
+
+      if (!allowedScopes.includes(item.scope)) {
+        throw new ApiError(
+          `Scope "${item.scope}" tidak diizinkan untuk permission "${permissionCode}".`,
+          400,
+        );
+      }
     }
 
     const before = await this.prisma.rolePermission.findMany({
@@ -577,7 +617,6 @@ export class RbacService {
 
     return this.getRoleById(roleId);
   }
-
   async createRole(data: CreateRoleDTO, actorId: string) {
     const existing = await this.prisma.role.findUnique({
       where: {

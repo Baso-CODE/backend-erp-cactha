@@ -13,6 +13,13 @@ interface PermissionSyncResult {
   unchanged: number;
 }
 
+const DEFAULT_ACCESS_SCOPES: AccessScope[] = [
+  AccessScope.OWN,
+  AccessScope.TEAM,
+  AccessScope.PROJECT,
+  AccessScope.CLIENT,
+  AccessScope.ALL,
+];
 @injectable()
 export class PermissionSyncService {
   constructor(private readonly prisma: PrismaService) {}
@@ -116,7 +123,22 @@ export class PermissionSyncService {
       },
     });
 
-    const grouped = permissions.reduce<Record<string, typeof permissions>>(
+    const registry = PermissionRegistryLoader.load();
+
+    const registryMap = new Map(
+      registry.map((permission) => [permission.code, permission]),
+    );
+
+    const data = permissions.map((permission) => {
+      const definition = registryMap.get(permission.code);
+
+      return {
+        ...permission,
+        allowedScopes: definition?.allowedScopes ?? DEFAULT_ACCESS_SCOPES,
+      };
+    });
+
+    const grouped = data.reduce<Record<string, typeof data>>(
       (result, permission) => {
         if (!result[permission.module]) {
           result[permission.module] = [];
@@ -130,7 +152,7 @@ export class PermissionSyncService {
     );
 
     return {
-      permissions,
+      permissions: data,
       grouped,
     };
   }
