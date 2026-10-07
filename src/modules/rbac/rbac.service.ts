@@ -1,10 +1,13 @@
-import { Prisma } from "@prisma/client";
+import { AccessScope, Prisma } from "@prisma/client";
 import * as argon2 from "argon2";
 import { injectable } from "tsyringe";
 
+import { ApiError } from "../../utils/api-error";
 import { PrismaService } from "../prisma/prisma.service";
+import { CreateRoleDTO } from "./dto/create-role.dto";
 import { CreateUserDTO } from "./dto/create-user.dto";
 import { QueryUserDTO } from "./dto/query-user.dto";
+import { UpdateRoleDTO } from "./dto/update-role.dto";
 import { UpdateUserDTO } from "./dto/update-user.dto";
 
 @injectable()
@@ -429,6 +432,326 @@ export class RbacService {
         name: "asc",
       },
     });
+  }
+
+  async getRoleById(id: string) {
+    const role = await this.prisma.role.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        isSystem: true,
+        isActive: true,
+        permissions: {
+          select: {
+            scope: true,
+            permission: {
+              select: {
+                id: true,
+                code: true,
+                module: true,
+                action: true,
+                description: true,
+              },
+            },
+          },
+          orderBy: {
+            permission: {
+              module: "asc",
+            },
+          },
+        },
+      },
+    });
+
+    if (!role) {
+      throw new Error("Role tidak ditemukan.");
+    }
+
+    return role;
+  }
+
+  async updateRolePermissions(
+    roleId: string,
+    permissions: {
+      permissionId: string;
+      scope: AccessScope;
+    }[],
+    actorId: string,
+  ) {
+    const role = await this.prisma.role.findUnique({
+      where: { id: roleId },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        isSystem: true,
+      },
+    });
+
+    if (!role) {
+      throw new Error("Role tidak ditemukan.");
+    }
+
+    if (role.code === "OWNER") {
+      throw new Error(
+        "Permission role OWNER tidak dapat diubah secara manual.",
+      );
+    }
+
+    const uniquePermissionIds = [
+      ...new Set(permissions.map((item) => item.permissionId)),
+    ];
+
+    if (uniquePermissionIds.length !== permissions.length) {
+      throw new Error("Permission tidak boleh duplikat.");
+    }
+
+    const existingPermissions = await this.prisma.permission.findMany({
+      where: {
+        id: {
+          in: uniquePermissionIds,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existingPermissions.length !== uniquePermissionIds.length) {
+      throw new Error("Satu atau lebih permission tidak valid.");
+    }
+
+    const before = await this.prisma.rolePermission.findMany({
+      where: {
+        roleId,
+      },
+      select: {
+        scope: true,
+        permission: {
+          select: {
+            id: true,
+            code: true,
+          },
+        },
+      },
+    });
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.rolePermission.deleteMany({
+        where: {
+          roleId,
+        },
+      });
+
+      if (permissions.length > 0) {
+        await tx.rolePermission.createMany({
+          data: permissions.map((item) => ({
+            roleId,
+            permissionId: item.permissionId,
+            scope: item.scope,
+          })),
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: "UPDATE_ROLE_PERMISSIONS",
+          entity: "Role",
+          entityId: roleId,
+          details: {
+            roleCode: role.code,
+            before: before.map((item) => ({
+              permissionId: item.permission.id,
+              permissionCode: item.permission.code,
+              scope: item.scope,
+            })),
+            after: permissions,
+          },
+        },
+      });
+    });
+
+    return this.getRoleById(roleId);
+  }
+
+  async createRole(data: CreateRoleDTO, actorId: string) {
+    const existing = await this.prisma.role.findUnique({
+      where: {
+        code: data.code,
+      },
+    });
+
+    if (existing) {
+      throw new ApiError(
+        `Role dengan code "${data.code}" sudah tersedia.`,
+        409,
+      );
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const role = await tx.role.create({
+        data: {
+          code: data.code,
+          name: data.name,
+          description: data.description,
+          isActive: data.isActive ?? true,
+          isSystem: false,
+        },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          description: true,
+          isSystem: true,
+          isActive: true,
+          createdAt: true,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: "CREATE",
+          entity: "Role",
+          entityId: role.id,
+          details: {
+            code: role.code,
+            name: role.name,
+            isActive: role.isActive,
+          },
+        },
+      });
+
+      return role;
+    });
+  }
+
+  async updateRole(roleId: string, data: UpdateRoleDTO, actorId: string) {
+    const existing = await this.prisma.role.findUnique({
+      where: {
+        id: roleId,
+      },
+    });
+
+    if (!existing) {
+      throw new ApiError("Role tidak ditemukan.", 404);
+    }
+
+    if (existing.code === "OWNER" && data.isActive === false) {
+      throw new ApiError("Role OWNER tidak dapat dinonaktifkan.", 400);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.role.update({
+        where: {
+          id: roleId,
+        },
+        data: {
+          ...(data.name !== undefined && {
+            name: data.name,
+          }),
+          ...(data.description !== undefined && {
+            description: data.description,
+          }),
+          ...(data.isActive !== undefined && {
+            isActive: data.isActive,
+          }),
+        },
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          description: true,
+          isSystem: true,
+          isActive: true,
+          updatedAt: true,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: "UPDATE",
+          entity: "Role",
+          entityId: roleId,
+          details: {
+            before: {
+              name: existing.name,
+              description: existing.description,
+              isActive: existing.isActive,
+            },
+            after: {
+              name: updated.name,
+              description: updated.description,
+              isActive: updated.isActive,
+            },
+          },
+        },
+      });
+
+      return updated;
+    });
+  }
+
+  async deleteRole(roleId: string, actorId: string) {
+    const existing = await this.prisma.role.findUnique({
+      where: {
+        id: roleId,
+      },
+      include: {
+        _count: {
+          select: {
+            users: true,
+            permissions: true,
+          },
+        },
+      },
+    });
+
+    if (!existing) {
+      throw new ApiError("Role tidak ditemukan.", 404);
+    }
+
+    if (existing.isSystem) {
+      throw new ApiError("System role tidak dapat dihapus.", 400);
+    }
+
+    if (existing._count.users > 0) {
+      throw new ApiError(
+        `Role "${existing.name}" masih digunakan oleh ${existing._count.users} user.`,
+        400,
+      );
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.role.delete({
+        where: {
+          id: roleId,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: actorId,
+          action: "DELETE",
+          entity: "Role",
+          entityId: roleId,
+          details: {
+            code: existing.code,
+            name: existing.name,
+            permissions: existing._count.permissions,
+          },
+        },
+      });
+    });
+
+    return {
+      message: `Role "${existing.name}" berhasil dihapus.`,
+    };
   }
 
   // ==========================================

@@ -3,7 +3,6 @@ import "dotenv/config";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "@prisma/client";
 
-import { seedPermissions } from "./seeds/permission.seed";
 import { seedRolePermissions } from "./seeds/role-permissions.seed";
 import { seedRoles } from "./seeds/roles.seed";
 import { seedUsers } from "./seeds/users.seed";
@@ -40,7 +39,7 @@ async function main() {
   console.log("Prisma connected.");
 
   await seedRoles(prisma);
-  await seedPermissions(prisma);
+  // await seedPermissionRegistry(prisma);
   await seedRolePermissions(prisma);
   await seedUsers(prisma);
 

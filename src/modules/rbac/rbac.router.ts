@@ -4,9 +4,12 @@ import { authenticateToken } from "../../middleware/auth.middleware";
 import { requirePermissions } from "../../middleware/permission.middleware";
 import { validateBody } from "../../middleware/validateBody.middleware";
 import { validateQuery } from "../../middleware/validateQuery.middleware";
+import { CreateRoleDTO } from "./dto/create-role.dto";
 import { CreateUserDTO } from "./dto/create-user.dto";
 import { QueryUserOptionsDTO } from "./dto/query-user-options.dto";
 import { QueryUserDTO } from "./dto/query-user.dto";
+import { UpdateRolePermissionsDTO } from "./dto/update-role-permissions.dto";
+import { UpdateRoleDTO } from "./dto/update-role.dto";
 import { UpdateUserDTO } from "./dto/update-user.dto";
 import { RbacController } from "./rbac.controller";
 
@@ -24,6 +27,65 @@ export class RbacRouter {
       authenticateToken,
       requirePermissions("admin.role.read"),
       this.rbacController.getRoles,
+    );
+
+    this.router.post(
+      "/roles",
+      authenticateToken,
+      requirePermissions("admin.role.create"),
+      validateBody(CreateRoleDTO),
+      this.rbacController.createRole,
+    );
+
+    this.router.get(
+      "/roles/:id",
+      authenticateToken,
+      requirePermissions("admin.role.read"),
+      this.rbacController.getRoleById,
+    );
+
+    this.router.patch(
+      "/roles/:id",
+      authenticateToken,
+      requirePermissions("admin.role.update"),
+      validateBody(UpdateRoleDTO),
+      this.rbacController.updateRole,
+    );
+
+    this.router.put(
+      "/roles/:id/permissions",
+      authenticateToken,
+      requirePermissions("admin.permission.manage"),
+      validateBody(UpdateRolePermissionsDTO),
+      this.rbacController.updateRolePermissions,
+    );
+
+    this.router.delete(
+      "/roles/:id",
+      authenticateToken,
+      requirePermissions("admin.role.delete"),
+      this.rbacController.deleteRole,
+    );
+
+    this.router.get(
+      "/permissions",
+      authenticateToken,
+      requirePermissions("admin.permission.read"),
+      this.rbacController.getPermissions,
+    );
+
+    this.router.get(
+      "/permissions/registry-status",
+      authenticateToken,
+      requirePermissions("admin.permission.read"),
+      this.rbacController.getPermissionRegistryStatus,
+    );
+
+    this.router.post(
+      "/permissions/sync",
+      authenticateToken,
+      requirePermissions("admin.permission.manage"),
+      this.rbacController.syncPermissions,
     );
 
     this.router.get(
