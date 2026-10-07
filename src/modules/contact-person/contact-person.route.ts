@@ -5,6 +5,7 @@ import { authenticateToken } from "../../middleware/auth.middleware";
 import { requirePermissions } from "../../middleware/permission.middleware";
 import { validateBody } from "../../middleware/validateBody.middleware";
 import { validateQuery } from "../../middleware/validateQuery.middleware";
+import { ClientPortalUserController } from "../client-portal/controller/client-portal-user.controller";
 import { ContactPersonController } from "./contact-person.controller";
 import { CreateContactPersonDTO } from "./dto/create-contact-person.dto";
 import { QueryContactPersonDTO } from "./dto/query-contact-person.dto";
@@ -16,6 +17,7 @@ export class ContactPersonRouter {
 
   constructor(
     private readonly contactPersonController: ContactPersonController,
+    private readonly clientPortalUserController: ClientPortalUserController,
   ) {
     this.initializeRoutes();
   }
@@ -29,6 +31,12 @@ export class ContactPersonRouter {
       this.contactPersonController.getAllContactPersons,
     );
 
+    this.router.get(
+      "/contact-persons/portal-users/options",
+      authenticateToken,
+      requirePermissions("client.contact.update"),
+      this.clientPortalUserController.getOptions,
+    );
     this.router.get(
       "/:id",
       authenticateToken,

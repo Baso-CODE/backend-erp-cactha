@@ -60,4 +60,8 @@ export class UpdateContactPersonDTO {
   @IsEnum(ClientStatus)
   @IsOptional()
   status?: ClientStatus;
+
+  @IsOptional()
+  @IsString()
+  userId?: string;
 }
