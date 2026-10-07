@@ -2,8 +2,11 @@ import { plainToInstance } from "class-transformer";
 import { validateOrReject } from "class-validator";
 import { NextFunction, Request, Response } from "express";
 import { injectable } from "tsyringe";
+import { CreateRoleDTO } from "./dto/create-role.dto";
 import { QueryUserOptionsDTO } from "./dto/query-user-options.dto";
 import { QueryUserDTO } from "./dto/query-user.dto";
+import { UpdateRoleDTO } from "./dto/update-role.dto";
+import { PermissionSyncService } from "./permission-sync.service";
 import { RbacService } from "./rbac.service";
 import { UserEligibilityService } from "./user-eligibility.service";
 
@@ -12,6 +15,7 @@ export class RbacController {
   constructor(
     private readonly rbacService: RbacService,
     private readonly userEligibilityService: UserEligibilityService,
+    private readonly permissionSyncService: PermissionSyncService,
   ) {}
 
   // ==========================================
@@ -249,6 +253,205 @@ export class RbacController {
       res.status(200).json({
         success: true,
         data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getPermissions = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const result = await this.permissionSyncService.getPermissions();
+
+      res.status(200).json({
+        success: true,
+        data: result.permissions,
+        grouped: result.grouped,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  syncPermissions = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const actorId = (req as any).user.id;
+
+      const result = await this.permissionSyncService.sync(actorId);
+
+      res.status(200).json({
+        success: true,
+        message: "Permission registry berhasil disinkronkan.",
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getPermissionRegistryStatus = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const result = await this.permissionSyncService.getRegistryStatus();
+
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getRoleById = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const role = await this.rbacService.getRoleById(id as string);
+
+      res.status(200).json({
+        success: true,
+        data: role,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateRolePermissions = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const actorId = (req as any).user?.id;
+
+      if (!actorId) {
+        res.status(401).json({
+          success: false,
+          message: "Unauthorized.",
+        });
+        return;
+      }
+
+      const result = await this.rbacService.updateRolePermissions(
+        id as string,
+        req.body.permissions,
+        actorId,
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Hak akses role berhasil diperbarui.",
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  createRole = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const actorId = (req as any).user?.id;
+
+      if (!actorId) {
+        res.status(401).json({
+          success: false,
+          message: "Unauthorized.",
+        });
+        return;
+      }
+
+      const role = await this.rbacService.createRole(
+        req.body as CreateRoleDTO,
+        actorId,
+      );
+
+      res.status(201).json({
+        success: true,
+        message: "Role berhasil dibuat.",
+        data: role,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  updateRole = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const actorId = (req as any).user?.id;
+
+      if (!actorId) {
+        res.status(401).json({
+          success: false,
+          message: "Unauthorized.",
+        });
+        return;
+      }
+
+      const role = await this.rbacService.updateRole(
+        id as string,
+        req.body as UpdateRoleDTO,
+        actorId,
+      );
+
+      res.status(200).json({
+        success: true,
+        message: "Role berhasil diperbarui.",
+        data: role,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  deleteRole = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const { id } = req.params;
+      const actorId = (req as any).user?.id;
+
+      if (!actorId) {
+        res.status(401).json({
+          success: false,
+          message: "Unauthorized.",
+        });
+        return;
+      }
+
+      const result = await this.rbacService.deleteRole(id as string, actorId);
+
+      res.status(200).json({
+        success: true,
+        ...result,
       });
     } catch (error) {
       next(error);

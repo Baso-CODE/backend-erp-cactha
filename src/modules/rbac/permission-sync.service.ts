@@ -1,11 +1,10 @@
 import { AccessScope } from "@prisma/client";
-import fs from "fs";
-import path from "path";
+
 import { injectable } from "tsyringe";
 
 import { ApiError } from "../../utils/api-error";
 import { PrismaService } from "../prisma/prisma.service";
-import { PermissionDefinition } from "./dto/permission-registry.types";
+import { PermissionRegistryLoader } from "./permission-registry.loader";
 
 interface PermissionSyncResult {
   discovered: number;
@@ -18,14 +17,11 @@ interface PermissionSyncResult {
 export class PermissionSyncService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async sync(): Promise<PermissionSyncResult> {
-    const permissions = this.discoverPermissions();
-
+  async sync(actorId: string): Promise<PermissionSyncResult> {
+    const permissions = PermissionRegistryLoader.load();
     if (permissions.length === 0) {
       throw new ApiError("Tidak ada permission manifest yang ditemukan.", 500);
     }
-
-    this.validatePermissions(permissions);
 
     let created = 0;
     let updated = 0;
@@ -40,7 +36,12 @@ export class PermissionSyncService {
 
       if (!existing) {
         await this.prisma.permission.create({
-          data: permission,
+          data: {
+            code: permission.code,
+            module: permission.module,
+            action: permission.action,
+            description: permission.description,
+          },
         });
 
         created++;
@@ -73,6 +74,21 @@ export class PermissionSyncService {
 
     await this.grantAllPermissionsToOwner();
 
+    await this.prisma.auditLog.create({
+      data: {
+        userId: actorId,
+        action: "PERMISSION_SYNC",
+        entity: "Permission",
+        entityId: "registry",
+        details: {
+          discovered: permissions.length,
+          created,
+          updated,
+          unchanged,
+        },
+      },
+    });
+
     return {
       discovered: permissions.length,
       created,
@@ -81,73 +97,79 @@ export class PermissionSyncService {
     };
   }
 
-  private discoverPermissions(): PermissionDefinition[] {
-    const modulesPath = path.resolve(__dirname, "..");
-
-    const manifestFiles = this.findManifestFiles(modulesPath);
-
-    return manifestFiles.flatMap((filePath) => {
-      const manifest = require(filePath) as {
-        permissions?: PermissionDefinition[];
-      };
-
-      return manifest.permissions ?? [];
+  async getPermissions() {
+    const permissions = await this.prisma.permission.findMany({
+      orderBy: [
+        {
+          module: "asc",
+        },
+        {
+          action: "asc",
+        },
+      ],
+      select: {
+        id: true,
+        code: true,
+        module: true,
+        action: true,
+        description: true,
+      },
     });
+
+    const grouped = permissions.reduce<Record<string, typeof permissions>>(
+      (result, permission) => {
+        if (!result[permission.module]) {
+          result[permission.module] = [];
+        }
+
+        result[permission.module].push(permission);
+
+        return result;
+      },
+      {},
+    );
+
+    return {
+      permissions,
+      grouped,
+    };
   }
 
-  private findManifestFiles(directory: string): string[] {
-    if (!fs.existsSync(directory)) {
-      return [];
-    }
+  async getRegistryStatus() {
+    const discoveredPermissions = PermissionRegistryLoader.load();
 
-    const result: string[] = [];
+    const manifestCodes = new Set(
+      discoveredPermissions.map((permission) => permission.code),
+    );
 
-    for (const entry of fs.readdirSync(directory, {
-      withFileTypes: true,
-    })) {
-      const fullPath = path.join(directory, entry.name);
+    const databasePermissions = await this.prisma.permission.findMany({
+      orderBy: {
+        code: "asc",
+      },
+      select: {
+        id: true,
+        code: true,
+        module: true,
+        action: true,
+        description: true,
+      },
+    });
 
-      if (entry.isDirectory()) {
-        result.push(...this.findManifestFiles(fullPath));
-        continue;
-      }
+    const orphaned = databasePermissions.filter(
+      (permission) => !manifestCodes.has(permission.code),
+    );
 
-      if (
-        entry.name.endsWith(".permissions.ts") ||
-        entry.name.endsWith(".permissions.js")
-      ) {
-        result.push(fullPath);
-      }
-    }
+    const registered = databasePermissions.filter((permission) =>
+      manifestCodes.has(permission.code),
+    );
 
-    return result;
-  }
-
-  private validatePermissions(permissions: PermissionDefinition[]): void {
-    const codes = new Set<string>();
-
-    for (const permission of permissions) {
-      if (
-        !permission.code ||
-        !permission.module ||
-        !permission.action ||
-        !permission.description
-      ) {
-        throw new ApiError(
-          "Permission manifest memiliki data yang tidak lengkap.",
-          500,
-        );
-      }
-
-      if (codes.has(permission.code)) {
-        throw new ApiError(
-          `Permission "${permission.code}" terdaftar lebih dari satu kali.`,
-          500,
-        );
-      }
-
-      codes.add(permission.code);
-    }
+    return {
+      manifestCount: discoveredPermissions.length,
+      databaseCount: databasePermissions.length,
+      registeredCount: registered.length,
+      orphanedCount: orphaned.length,
+      orphaned,
+    };
   }
 
   private async grantAllPermissionsToOwner(): Promise<void> {

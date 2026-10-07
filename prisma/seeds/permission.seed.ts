@@ -362,41 +362,6 @@ export async function seedPermissions(prisma: PrismaClient) {
     },
 
     // ==========================================
-    // WORKFLOW INSTANCE
-    // ==========================================
-
-    {
-      code: "workflow.instance.read",
-      module: "workflow",
-      action: "read",
-      description: "Melihat workflow instance",
-    },
-    {
-      code: "workflow.instance.create",
-      module: "workflow",
-      action: "create",
-      description: "Membuat workflow instance",
-    },
-    {
-      code: "workflow.instance.update",
-      module: "workflow",
-      action: "update",
-      description: "Mengubah workflow instance",
-    },
-    {
-      code: "workflow.instance.delete",
-      module: "workflow",
-      action: "delete",
-      description: "Menghapus workflow instance",
-    },
-    {
-      code: "workflow.instance.manage",
-      module: "workflow",
-      action: "manage",
-      description: "Mengelola status dan current step workflow instance",
-    },
-
-    // ==========================================
     // PROJECT
     // ==========================================
 

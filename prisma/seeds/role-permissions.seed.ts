@@ -81,13 +81,6 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "workflow.template.update", scope: AccessScope.ALL },
     { permission: "workflow.template.delete", scope: AccessScope.ALL },
 
-    // WORKFLOW INSTANCE
-    { permission: "workflow.instance.read", scope: AccessScope.ALL },
-    { permission: "workflow.instance.create", scope: AccessScope.ALL },
-    { permission: "workflow.instance.update", scope: AccessScope.ALL },
-    { permission: "workflow.instance.delete", scope: AccessScope.ALL },
-    { permission: "workflow.instance.manage", scope: AccessScope.ALL },
-
     { permission: "project.read", scope: AccessScope.ALL },
     { permission: "project.create", scope: AccessScope.ALL },
     { permission: "project.update", scope: AccessScope.ALL },
@@ -184,12 +177,6 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
     { permission: "workflow.template.read", scope: AccessScope.ALL },
     { permission: "workflow.template.create", scope: AccessScope.ALL },
     { permission: "workflow.template.update", scope: AccessScope.ALL },
-
-    // WORKFLOW INSTANCE
-    { permission: "workflow.instance.read", scope: AccessScope.ALL },
-    { permission: "workflow.instance.create", scope: AccessScope.ALL },
-    { permission: "workflow.instance.update", scope: AccessScope.ALL },
-    { permission: "workflow.instance.manage", scope: AccessScope.ALL },
 
     { permission: "project.read", scope: AccessScope.ALL },
     { permission: "project.create", scope: AccessScope.ALL },
@@ -301,12 +288,6 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
 
     // WORKFLOW TEMPLATE
     { permission: "workflow.template.read", scope: AccessScope.ALL },
-
-    // WORKFLOW INSTANCE
-    { permission: "workflow.instance.read", scope: AccessScope.ALL },
-    { permission: "workflow.instance.create", scope: AccessScope.ALL },
-    { permission: "workflow.instance.update", scope: AccessScope.ALL },
-    { permission: "workflow.instance.manage", scope: AccessScope.ALL },
 
     { permission: "project.read", scope: AccessScope.OWN },
     { permission: "project.update", scope: AccessScope.OWN },
