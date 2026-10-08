@@ -795,6 +795,10 @@ model Invoice {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  recurringBillingId String?
+  recurringBilling   RecurringBilling? @relation(fields: [recurringBillingId], references: [id], onDelete: SetNull)
+  billingPeriodStart DateTime?
+
   @@index([clientId])
   @@index([contractId])
   @@index([projectId])
@@ -871,10 +875,14 @@ model RecurringBilling {
 
   frequency RecurringBillingFrequency
 
-  nextRunDate DateTime
-  lastRunDate DateTime?
+  nextRunDate      DateTime
+  lastRunDate      DateTime?
+  billingAnchorDay Int?
 
+  dueDays  Int     @default(14)
   isActive Boolean @default(true)
+
+  invoices Invoice[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

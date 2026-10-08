@@ -8,6 +8,7 @@ import { container } from "tsyringe";
 import { env } from "./config";
 
 import { initializeNotificationCron } from "./cron/notification.cron";
+import { initializeRecurringBillingCron } from "./cron/recurring-billing.cron";
 import { errorMiddleware } from "./middleware/error.middleware";
 import { globalLimiter } from "./middleware/rateLimiter.middleware";
 import { ActivityRouter } from "./modules/activity/activity.router";
@@ -27,6 +28,7 @@ import { ProjectRouter } from "./modules/project/project.router";
 import { ProposalRouter } from "./modules/proposal/proposal.router";
 import { QuotationRouter } from "./modules/quotation/quotation.router";
 import { RbacRouter } from "./modules/rbac/rbac.router";
+import { RecurringBillingRouter } from "./modules/recurring-billing/recurring-billing.route";
 import { TaskAttachmentRoute } from "./modules/task/route/task-attachment.route";
 import { TaskChecklistRoute } from "./modules/task/route/task-checklist.route";
 import { TaskCommentRoute } from "./modules/task/route/task-comment.route";
@@ -91,6 +93,7 @@ export default class App {
     const invoiceRouter = container.resolve(InvoiceRouter);
     const paymentRouter = container.resolve(PaymentRouter);
     const financeDashboardRouter = container.resolve(FinanceDashboardRouter);
+    const recurringBillingRouter = container.resolve(RecurringBillingRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -118,6 +121,7 @@ export default class App {
     this.app.use("/invoices", invoiceRouter.getRouter());
     this.app.use("/payments", paymentRouter.getRouter());
     this.app.use("/finance", financeDashboardRouter.getRouter());
+    this.app.use("/recurring-billings", recurringBillingRouter.getRouter());
   }
 
   private handleError(): void {
@@ -139,6 +143,7 @@ export default class App {
       console.log(`  ➜  [API] Local:   http://localhost:${env().PORT}`);
       try {
         initializeNotificationCron();
+        initializeRecurringBillingCron();
         console.log("✅ Notification cron berhasil diinisialisasi");
       } catch (error) {
         console.error("❌ Gagal menginisialisasi Cron Jobs:", error);
