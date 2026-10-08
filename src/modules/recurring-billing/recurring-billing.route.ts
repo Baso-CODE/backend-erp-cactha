@@ -37,6 +37,28 @@ export class RecurringBillingRouter {
     );
 
     this.router.get(
+      "/jobs/summary",
+      authenticateToken,
+      requirePermissions("recurring_billing.read"),
+      this.controller.getJobSummary,
+    );
+
+    this.router.get(
+      "/jobs",
+      authenticateToken,
+      requirePermissions("recurring_billing.read"),
+      this.controller.getJobs,
+    );
+
+    this.router.post(
+      "/jobs/:jobId/retry",
+      authenticateToken,
+      requirePermissions("recurring_billing.update"),
+      requirePermissions("invoice.create"),
+      this.controller.retryJob,
+    );
+
+    this.router.get(
       "/:id",
       authenticateToken,
       requirePermissions("recurring_billing.read"),

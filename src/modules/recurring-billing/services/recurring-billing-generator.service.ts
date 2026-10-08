@@ -1,7 +1,13 @@
 import { Prisma } from "@prisma/client";
 import { injectable } from "tsyringe";
-import { ApiError } from "../../utils/api-error";
-import { PrismaService } from "../prisma/prisma.service";
+import { ApiError } from "../../../utils/api-error";
+import { PrismaService } from "../../prisma/prisma.service";
+
+type BillingJobContext = {
+  jobId: string;
+  workerId: string;
+  billingPeriodStart: Date;
+};
 
 @injectable()
 export class RecurringBillingGeneratorService {
@@ -47,9 +53,34 @@ export class RecurringBillingGeneratorService {
     return target;
   }
 
-  async generateInvoice(billingId: string) {
+  async generateInvoice(billingId: string, jobContext?: BillingJobContext) {
     return this.prisma.$transaction(
       async (tx) => {
+        if (jobContext) {
+          const now = new Date();
+
+          const claim = await tx.recurringBillingJob.updateMany({
+            where: {
+              id: jobContext.jobId,
+              recurringBillingId: billingId,
+              billingPeriodStart: jobContext.billingPeriodStart,
+              status: "PROCESSING",
+              lockedBy: jobContext.workerId,
+              lockedUntil: { gt: now },
+            },
+            data: {
+              lockedUntil: new Date(now.getTime() + 60_000),
+            },
+          });
+
+          if (claim.count !== 1) {
+            throw new ApiError(
+              "Hak pemrosesan job sudah kedaluwarsa atau berpindah.",
+              409,
+            );
+          }
+        }
+
         const billing = await tx.recurringBilling.findUnique({
           where: { id: billingId },
           include: {
@@ -183,6 +214,31 @@ export class RecurringBillingGeneratorService {
             },
           },
         });
+
+        if (jobContext) {
+          const completed = await tx.recurringBillingJob.updateMany({
+            where: {
+              id: jobContext.jobId,
+              status: "PROCESSING",
+              lockedBy: jobContext.workerId,
+              recurringBillingId: billingId,
+              billingPeriodStart: periodStart,
+            },
+            data: {
+              status: "COMPLETED",
+              invoiceId: invoice.id,
+              completedAt: new Date(),
+              nextRetryAt: null,
+              lastError: null,
+              lockedBy: null,
+              lockedUntil: null,
+            },
+          });
+
+          if (completed.count !== 1) {
+            throw new ApiError("Gagal menyelesaikan job billing.", 409);
+          }
+        }
 
         return invoice;
       },
