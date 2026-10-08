@@ -48,7 +48,7 @@ export class CreateProjectBudgetDTO {
 export class UpdateProjectBudgetDTO {
   @IsOptional()
   @IsUUID("4")
-  projectServiceId?: string;
+  projectServiceId?: string | null;
 
   @IsOptional()
   @IsEnum(ProjectCostCategory)

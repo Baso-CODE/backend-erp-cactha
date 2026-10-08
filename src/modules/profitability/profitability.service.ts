@@ -72,23 +72,25 @@ export class ProfitabilityService {
 
   private async validateProjectService(
     projectId: string,
-    projectServiceId?: string,
+    projectServiceId?: string | null,
   ) {
     if (!projectServiceId) return;
 
     const service = await this.prisma.projectService.findFirst({
-      where: { id: projectServiceId, projectId },
+      where: {
+        id: projectServiceId,
+        projectId,
+      },
       select: { id: true },
     });
 
     if (!service) {
       throw new ApiError(
-        "Project Service tidak ditemukan pada Project ini.",
+        "Service tidak ditemukan atau bukan milik Project ini.",
         400,
       );
     }
   }
-
   private validateAmount(value: string) {
     let amount: Prisma.Decimal;
 
@@ -138,7 +140,7 @@ export class ProfitabilityService {
   }
 
   async getBudgets(query: QueryProjectBudgetDTO, actorId: string) {
-    const access = await this.projectAccess(actorId, "project.read");
+    const access = await this.projectAccess(actorId, "profitability.read");
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
@@ -195,7 +197,7 @@ export class ProfitabilityService {
   }
 
   async getBudgetById(id: string, actorId: string) {
-    const access = await this.projectAccess(actorId, "project.read");
+    const access = await this.projectAccess(actorId, "profitability.read");
 
     const budget = await this.prisma.projectBudget.findFirst({
       where: { id, project: access },
@@ -231,7 +233,7 @@ export class ProfitabilityService {
     const project = await this.getProject(
       data.projectId,
       actorId,
-      "project.update",
+      "profitability.update",
     );
 
     await this.validateProjectService(project.id, data.projectServiceId);
@@ -280,7 +282,7 @@ export class ProfitabilityService {
     data: UpdateProjectBudgetDTO,
     actorId: string,
   ) {
-    const access = await this.projectAccess(actorId, "project.update");
+    const access = await this.projectAccess(actorId, "profitability.update");
 
     const existing = await this.prisma.projectBudget.findFirst({
       where: { id, project: access },
@@ -375,7 +377,7 @@ export class ProfitabilityService {
   }
 
   async deleteBudget(id: string, actorId: string) {
-    const access = await this.projectAccess(actorId, "project.update");
+    const access = await this.projectAccess(actorId, "profitability.update");
 
     const existing = await this.prisma.projectBudget.findFirst({
       where: { id, project: access },
@@ -424,7 +426,7 @@ export class ProfitabilityService {
   }
 
   async getCosts(query: QueryProjectCostDTO, actorId: string) {
-    const access = await this.projectAccess(actorId, "project.read");
+    const access = await this.projectAccess(actorId, "profitability.read");
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
 
@@ -494,7 +496,7 @@ export class ProfitabilityService {
   }
 
   async getCostById(id: string, actorId: string) {
-    const access = await this.projectAccess(actorId, "project.read");
+    const access = await this.projectAccess(actorId, "profitability.read");
 
     const cost = await this.prisma.projectCost.findFirst({
       where: { id, project: access },
@@ -530,7 +532,7 @@ export class ProfitabilityService {
     const project = await this.getProject(
       data.projectId,
       actorId,
-      "project.update",
+      "profitability.update",
     );
 
     await this.validateProjectService(project.id, data.projectServiceId);
@@ -578,7 +580,7 @@ export class ProfitabilityService {
   }
 
   async updateCost(id: string, data: UpdateProjectCostDTO, actorId: string) {
-    const access = await this.projectAccess(actorId, "project.update");
+    const access = await this.projectAccess(actorId, "profitability.update");
 
     const existing = await this.prisma.projectCost.findFirst({
       where: { id, project: access },
@@ -660,6 +662,7 @@ export class ProfitabilityService {
           action: "UPDATE",
           entity: "ProjectCost",
           entityId: id,
+
           details: {
             projectId: updated.projectId,
             before: {
@@ -683,7 +686,7 @@ export class ProfitabilityService {
   }
 
   async deleteCost(id: string, actorId: string) {
-    const access = await this.projectAccess(actorId, "project.update");
+    const access = await this.projectAccess(actorId, "profitability.update");
 
     const existing = await this.prisma.projectCost.findFirst({
       where: { id, project: access },
@@ -717,6 +720,7 @@ export class ProfitabilityService {
           action: "DELETE",
           entity: "ProjectCost",
           entityId: id,
+
           details: {
             projectId: existing.projectId,
             category: existing.category,
@@ -1365,6 +1369,7 @@ export class ProfitabilityService {
         projectId: true,
         currency: true,
         status: true,
+        allocationVersion: true,
         subtotal: true,
         discountAmount: true,
         revenueAllocations: {
@@ -1407,6 +1412,7 @@ export class ProfitabilityService {
         projectId: invoice.projectId,
         currency: invoice.currency,
         status: invoice.status,
+        allocationVersion: invoice.allocationVersion,
       },
       summary: {
         netRevenue: netRevenue.toFixed(2),
@@ -1444,6 +1450,7 @@ export class ProfitabilityService {
             projectId: true,
             currency: true,
             status: true,
+            allocationVersion: true,
             subtotal: true,
             discountAmount: true,
             updatedAt: true,
@@ -1519,24 +1526,29 @@ export class ProfitabilityService {
           );
         }
 
-        // Mengunci perubahan pada invoice dan mencegah penulisan
-        // bersamaan berdasarkan versi updatedAt.
+        if (invoice.allocationVersion !== data.allocationVersion) {
+          throw new ApiError(
+            "Revenue Allocation sudah diperbarui oleh pengguna lain. Muat ulang data sebelum menyimpan.",
+            409,
+          );
+        }
+
         const claimed = await tx.invoice.updateMany({
           where: {
             id: invoice.id,
-            updatedAt: invoice.updatedAt,
+            allocationVersion: data.allocationVersion,
             status: {
               in: ["SENT", "PARTIALLY_PAID", "PAID", "OVERDUE"],
             },
           },
           data: {
-            updatedAt: new Date(),
+            allocationVersion: { increment: 1 },
           },
         });
 
         if (claimed.count !== 1) {
           throw new ApiError(
-            "Invoice telah berubah. Muat ulang data sebelum menyimpan alokasi.",
+            "Revenue Allocation berubah saat penyimpanan. Muat ulang data dan coba lagi.",
             409,
           );
         }
@@ -1565,6 +1577,8 @@ export class ProfitabilityService {
               invoiceId: invoice.id,
               invoiceNo: invoice.invoiceNo,
               projectId: invoice.projectId,
+              previousVersion: invoice.allocationVersion,
+              currentVersion: invoice.allocationVersion + 1,
               previous: invoice.revenueAllocations.map((item) => ({
                 projectServiceId: item.projectServiceId,
                 amount: item.amount.toString(),
@@ -1583,6 +1597,7 @@ export class ProfitabilityService {
           invoiceId: invoice.id,
           currency: invoice.currency,
           netRevenue: netRevenue.toFixed(2),
+          allocationVersion: invoice.allocationVersion + 1,
           allocatedRevenue: totalAllocated.toFixed(2),
           unallocatedRevenue: netRevenue.minus(totalAllocated).toFixed(2),
           allocations: normalized.map((item) => ({

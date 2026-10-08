@@ -101,7 +101,7 @@ export class QueryProjectCostDTO {
 
   @IsOptional()
   @IsUUID("4")
-  projectServiceId?: string;
+  projectServiceId?: string | null;
 
   @IsOptional()
   @IsEnum(ProjectCostCategory)

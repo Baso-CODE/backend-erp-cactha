@@ -858,8 +858,9 @@ model Invoice {
   contractId String?
   contract   Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
 
-  projectId String?
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  projectId         String?
+  project           Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  allocationVersion Int      @default(0)
 
   invoiceDate          DateTime
   dueDate              DateTime
