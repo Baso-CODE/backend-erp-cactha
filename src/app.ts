@@ -16,6 +16,7 @@ import { ClientPortalRouter } from "./modules/client-portal/client-portal.router
 import { ClientRouter } from "./modules/client/client.route";
 import { ContactPersonRouter } from "./modules/contact-person/contact-person.route";
 import { ContractRouter } from "./modules/contract/contract.route";
+import { FinanceDashboardRouter } from "./modules/finance/finance-dashboard.route";
 import { InvoiceRouter } from "./modules/invoice/invoice.router";
 import { LeadRouter } from "./modules/lead/lead.router";
 import { MasterServiceRouter } from "./modules/master-service/master-service.router";
@@ -89,6 +90,7 @@ export default class App {
     const clientPortalRouter = container.resolve(ClientPortalRouter);
     const invoiceRouter = container.resolve(InvoiceRouter);
     const paymentRouter = container.resolve(PaymentRouter);
+    const financeDashboardRouter = container.resolve(FinanceDashboardRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -115,6 +117,7 @@ export default class App {
     this.app.use("/client", clientPortalRouter.getRouter());
     this.app.use("/invoices", invoiceRouter.getRouter());
     this.app.use("/payments", paymentRouter.getRouter());
+    this.app.use("/finance", financeDashboardRouter.getRouter());
   }
 
   private handleError(): void {

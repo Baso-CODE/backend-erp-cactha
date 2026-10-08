@@ -756,10 +756,6 @@ model ApprovalRequest {
 // PART 8: FINANCE & PERFORMANCE
 // ==========================================
 
-// ==========================================
-// PART 8: FINANCE & PERFORMANCE
-// ==========================================
-
 model Invoice {
   id        String @id @default(uuid())
   invoiceNo String @unique
