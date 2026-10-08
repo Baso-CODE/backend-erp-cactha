@@ -2,9 +2,11 @@ import { Type } from "class-transformer";
 import {
   ArrayUnique,
   IsArray,
+  IsInt,
   IsString,
   IsUUID,
   Matches,
+  Min,
   ValidateNested,
 } from "class-validator";
 
@@ -23,4 +25,8 @@ export class SaveRevenueAllocationsDTO {
   @ValidateNested({ each: true })
   @Type(() => RevenueAllocationItemDTO)
   allocations!: RevenueAllocationItemDTO[];
+
+  @IsInt()
+  @Min(0)
+  allocationVersion!: number;
 }
