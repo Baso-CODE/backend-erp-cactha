@@ -1,13 +1,14 @@
 import { Prisma } from "@prisma/client";
 import { injectable } from "tsyringe";
-import { AccessScopeService } from "../../helpers/access-scope.service";
-import { ApiError } from "../../utils/api-error";
-import { PrismaService } from "../prisma/prisma.service";
+
+import { AccessScopeService } from "../../../helpers/access-scope.service";
+import { ApiError } from "../../../utils/api-error";
+import { PrismaService } from "../../prisma/prisma.service";
 import {
   CreateRecurringBillingDTO,
   QueryRecurringBillingDTO,
   UpdateRecurringBillingDTO,
-} from "./dto/recurring-billing.dto";
+} from "../dto/recurring-billing.dto";
 import { RecurringBillingGeneratorService } from "./recurring-billing-generator.service";
 
 @injectable()

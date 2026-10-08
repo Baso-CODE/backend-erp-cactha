@@ -1,81 +1,71 @@
 import cron from "node-cron";
 import { container } from "tsyringe";
-import { PrismaService } from "../modules/prisma/prisma.service";
-import { RecurringBillingGeneratorService } from "../modules/recurring-billing/recurring-billing-generator.service";
+import { RecurringBillingJobProcessorService } from "../modules/recurring-billing/services/recurring-billing-job-processor.service";
+import { RecurringBillingJobService } from "../modules/recurring-billing/services/recurring-billing-job.service";
 
 const BATCH_SIZE = 25;
 let isRunning = false;
+let isInitialized = false;
 
 export function initializeRecurringBillingCron(): void {
+  if (isInitialized) return;
+  isInitialized = true;
+
+  const jobService = container.resolve(RecurringBillingJobService);
+  const processor = container.resolve(RecurringBillingJobProcessorService);
+  const workerId = jobService.createWorkerId();
+
   cron.schedule(
     "* * * * *",
     async () => {
       if (isRunning) return;
-
       isRunning = true;
 
       try {
-        const prisma = container.resolve(PrismaService);
-        const generator = container.resolve(RecurringBillingGeneratorService);
-        const now = new Date();
+        const recovered = await jobService.recoverExpiredLocks();
+        const enqueued = await jobService.enqueueDueBillings();
 
-        const billings = await prisma.recurringBilling.findMany({
-          where: {
-            isActive: true,
-            nextRunDate: { lte: now },
-            contract: {
-              status: "ACTIVE",
-            },
-          },
-          select: {
-            id: true,
-            nextRunDate: true,
-            contract: {
-              select: {
-                endDate: true,
-              },
-            },
-          },
-          orderBy: { nextRunDate: "asc" },
-          take: BATCH_SIZE,
-        });
-
-        let generated = 0;
+        let completed = 0;
         let failed = 0;
+        let lockLost = 0;
+        let processed = 0;
 
-        for (const billing of billings) {
-          if (billing.nextRunDate > billing.contract.endDate) {
-            console.warn(
-              `[CRON][RECURRING_BILLING] Jadwal ${billing.id} melewati akhir kontrak.`,
-            );
-            continue;
-          }
+        for (let i = 0; i < BATCH_SIZE; i++) {
+          const result = await processor.processNextJob(workerId);
 
-          try {
-            await generator.generateInvoice(billing.id);
-            generated++;
-          } catch (error) {
-            failed++;
-            console.error(
-              `[CRON][RECURRING_BILLING] Gagal billing ${billing.id}:`,
-              error,
-            );
+          if (result.status === "EMPTY") break;
+
+          processed++;
+
+          switch (result.status) {
+            case "COMPLETED":
+              completed++;
+              break;
+            case "FAILED":
+              failed++;
+              break;
+            case "LOCK_LOST":
+              lockLost++;
+              break;
           }
         }
 
-        if (billings.length > 0) {
+        if (recovered.recovered > 0 || enqueued.queued > 0 || processed > 0) {
           console.log(
-            `[CRON][RECURRING_BILLING] checked=${billings.length} generated=${generated} failed=${failed}`,
+            `[CRON][RECURRING_BILLING] worker=${workerId} queued=${enqueued.queued} recovered=${recovered.recovered} processed=${processed} completed=${completed} failed=${failed} lockLost=${lockLost}`,
           );
         }
       } catch (error) {
-        console.error("[CRON][RECURRING_BILLING] Error:", error);
+        console.error(
+          "[CRON][RECURRING_BILLING] Gagal menjalankan worker:",
+          error,
+        );
       } finally {
         isRunning = false;
       }
     },
-    {
-      timezone: "UTC",
-    },
+    { timezone: "UTC" },
   );
+
+  console.log(`[CRON][RECURRING_BILLING] Worker initialized: ${workerId}`);
 }

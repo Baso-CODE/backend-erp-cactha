@@ -769,10 +769,10 @@ model Invoice {
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  invoiceDate DateTime
-  dueDate     DateTime
-
-  currency String @default("IDR")
+  invoiceDate          DateTime
+  dueDate              DateTime
+  recurringBillingJobs RecurringBillingJob[]
+  currency             String                @default("IDR")
 
   subtotal       Decimal @db.Decimal(15, 2)
   discountAmount Decimal @default(0) @db.Decimal(15, 2)
@@ -799,6 +799,7 @@ model Invoice {
   recurringBilling   RecurringBilling? @relation(fields: [recurringBillingId], references: [id], onDelete: SetNull)
   billingPeriodStart DateTime?
 
+  @@unique([recurringBillingId, billingPeriodStart])
   @@index([clientId])
   @@index([contractId])
   @@index([projectId])
@@ -878,9 +879,9 @@ model RecurringBilling {
   nextRunDate      DateTime
   lastRunDate      DateTime?
   billingAnchorDay Int?
-
-  dueDays  Int     @default(14)
-  isActive Boolean @default(true)
+  jobs             RecurringBillingJob[]
+  dueDays          Int                   @default(14)
+  isActive         Boolean               @default(true)
 
   invoices Invoice[]
 
@@ -890,6 +891,45 @@ model RecurringBilling {
   @@index([contractId])
   @@index([nextRunDate])
   @@index([isActive])
+}
+
+enum RecurringBillingJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model RecurringBillingJob {
+  id String @id @default(uuid())
+
+  recurringBillingId String
+  recurringBilling   RecurringBilling @relation(fields: [recurringBillingId], references: [id])
+
+  billingPeriodStart DateTime
+  status             RecurringBillingJobStatus @default(PENDING)
+
+  attempts    Int       @default(0)
+  maxRetries  Int       @default(5)
+  nextRetryAt DateTime?
+  lastError   String?   @db.Text
+
+  lockedBy    String?
+  lockedUntil DateTime?
+
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([recurringBillingId, billingPeriodStart])
+  @@index([status, nextRetryAt])
+  @@index([status, lockedUntil])
+  @@index([recurringBillingId])
+  @@index([invoiceId])
 }
 
 model PerformanceMetric {
