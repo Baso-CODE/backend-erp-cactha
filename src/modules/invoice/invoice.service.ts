@@ -397,10 +397,14 @@ export class InvoiceService {
       );
     }
 
-    if (existing.status !== "DRAFT") {
+    const allocationCount = await this.prisma.invoiceRevenueAllocation.count({
+      where: { invoiceId: id },
+    });
+
+    if (allocationCount > 0) {
       throw new ApiError(
-        "Hanya invoice berstatus DRAFT yang dapat diubah.",
-        400,
+        "Invoice sudah memiliki Revenue Allocation. Hapus alokasi terlebih dahulu sebelum mengubah Invoice.",
+        409,
       );
     }
 

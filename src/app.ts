@@ -23,6 +23,7 @@ import { LeadRouter } from "./modules/lead/lead.router";
 import { MasterServiceRouter } from "./modules/master-service/master-service.router";
 import { NotificationRouter } from "./modules/notification/notification.router";
 import { PaymentRouter } from "./modules/payment/payment.route";
+import { ProfitabilityRouter } from "./modules/profitability/profitability.route";
 import { ProjectServiceRouter } from "./modules/project-service/project-service.route";
 import { ProjectRouter } from "./modules/project/project.router";
 import { ProposalRouter } from "./modules/proposal/proposal.router";
@@ -94,6 +95,7 @@ export default class App {
     const paymentRouter = container.resolve(PaymentRouter);
     const financeDashboardRouter = container.resolve(FinanceDashboardRouter);
     const recurringBillingRouter = container.resolve(RecurringBillingRouter);
+    const profitabilityRouter = container.resolve(ProfitabilityRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -122,6 +124,7 @@ export default class App {
     this.app.use("/payments", paymentRouter.getRouter());
     this.app.use("/finance", financeDashboardRouter.getRouter());
     this.app.use("/recurring-billings", recurringBillingRouter.getRouter());
+    this.app.use("/profitability", profitabilityRouter.getRouter());
   }
 
   private handleError(): void {

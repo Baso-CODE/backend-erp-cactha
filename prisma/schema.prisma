@@ -531,6 +531,71 @@ enum SupportTicketPriority {
   URGENT
 }
 
+enum ProjectCostCategory {
+  PERSONNEL
+  FREELANCER
+  ADVERTISING
+  SOFTWARE
+  PRODUCTION
+  VENDOR
+  OPERATIONAL
+  OTHER
+}
+
+model ProjectCost {
+  id String @id @default(uuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  projectServiceId String?
+  projectService   ProjectService? @relation(fields: [projectServiceId], references: [id], onDelete: Restrict)
+
+  category    ProjectCostCategory
+  description String              @db.VarChar(255)
+
+  amount   Decimal @db.Decimal(15, 2)
+  currency String  @default("IDR") @db.VarChar(3)
+
+  costDate DateTime
+
+  reference String? @db.VarChar(150)
+  notes     String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([projectServiceId])
+  @@index([projectId, costDate])
+  @@index([projectId, category])
+}
+
+model ProjectBudget {
+  id String @id @default(uuid())
+
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Restrict)
+
+  projectServiceId String?
+  projectService   ProjectService? @relation(fields: [projectServiceId], references: [id], onDelete: Restrict)
+
+  category    ProjectCostCategory
+  description String              @db.VarChar(255)
+
+  amount   Decimal @db.Decimal(15, 2)
+  currency String  @default("IDR") @db.VarChar(3)
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([projectServiceId])
+  @@index([projectId, category])
+}
+
 model Project {
   id          String  @id @default(uuid())
   projectCode String  @unique
@@ -559,6 +624,8 @@ model Project {
   attachments        Attachment[]        @relation("ProjectAttachments")
   supportTickets     SupportTicket[]
   invoices           Invoice[]
+  budgets            ProjectBudget[]
+  costs              ProjectCost[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -589,9 +656,34 @@ model ProjectService {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  budgets            ProjectBudget[]
+  costs              ProjectCost[]
+  revenueAllocations InvoiceRevenueAllocation[]
+
   @@unique([projectId, masterServiceId])
   @@index([masterServiceId])
   @@index([status])
+}
+
+model InvoiceRevenueAllocation {
+  id String @id @default(uuid())
+
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+
+  projectServiceId String
+  projectService   ProjectService @relation(fields: [projectServiceId], references: [id], onDelete: Restrict)
+
+  amount Decimal @db.Decimal(15, 2)
+
+  notes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([invoiceId, projectServiceId])
+  @@index([invoiceId])
+  @@index([projectServiceId])
 }
 
 // ==========================================
@@ -796,8 +888,9 @@ model Invoice {
   updatedAt DateTime @updatedAt
 
   recurringBillingId String?
-  recurringBilling   RecurringBilling? @relation(fields: [recurringBillingId], references: [id], onDelete: SetNull)
+  recurringBilling   RecurringBilling?          @relation(fields: [recurringBillingId], references: [id], onDelete: SetNull)
   billingPeriodStart DateTime?
+  revenueAllocations InvoiceRevenueAllocation[]
 
   @@unique([recurringBillingId, billingPeriodStart])
   @@index([clientId])
