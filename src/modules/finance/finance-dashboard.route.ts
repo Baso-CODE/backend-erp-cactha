@@ -6,9 +6,11 @@ import { validateQuery } from "../../middleware/validateQuery.middleware";
 import { FinanceAgingController } from "./controller/finance-aging.controller";
 import { FinanceDashboardController } from "./controller/finance-dashboard.controller";
 import { FinanceReportController } from "./controller/finance-report.controller";
+import { RevenueReportController } from "./controller/revenue-report.controller";
 import { ExportInvoiceQueryDTO } from "./dto/export-invoice-query.dto";
 import { ExportPaymentQueryDTO } from "./dto/export-payment-query.dto";
 import { QueryReportHistoryDTO } from "./dto/query-report-history.dto";
+import { QueryRevenueReportDTO } from "./dto/query-revenue-report.dto";
 
 function requireFinanceReportRead(
   req: Request,
@@ -49,6 +51,7 @@ export class FinanceDashboardRouter {
     private readonly financeDashboardController: FinanceDashboardController,
     private readonly financeAgingController: FinanceAgingController,
     private readonly financeReportController: FinanceReportController,
+    private readonly revenueReportController: RevenueReportController,
   ) {
     this.initializeRoutes();
   }
@@ -59,6 +62,42 @@ export class FinanceDashboardRouter {
       authenticateToken,
       requirePermissions("invoice.read"),
       this.financeDashboardController.getDashboard,
+    );
+
+    this.router.get(
+      "/reports/revenue/summary",
+      authenticateToken,
+      requirePermissions("invoice.read"),
+      requirePermissions("payment.read"),
+      validateQuery(QueryRevenueReportDTO),
+      this.revenueReportController.getSummary,
+    );
+
+    this.router.get(
+      "/reports/revenue/trend",
+      authenticateToken,
+      requirePermissions("invoice.read"),
+      requirePermissions("payment.read"),
+      validateQuery(QueryRevenueReportDTO),
+      this.revenueReportController.getTrend,
+    );
+
+    this.router.get(
+      "/reports/revenue/clients",
+      authenticateToken,
+      requirePermissions("invoice.read"),
+      requirePermissions("payment.read"),
+      validateQuery(QueryRevenueReportDTO),
+      this.revenueReportController.getRevenueByClients,
+    );
+
+    this.router.get(
+      "/reports/revenue/projects",
+      authenticateToken,
+      requirePermissions("invoice.read"),
+      requirePermissions("payment.read"),
+      validateQuery(QueryRevenueReportDTO),
+      this.revenueReportController.getRevenueByProjects,
     );
 
     this.router.get(
