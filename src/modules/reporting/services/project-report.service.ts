@@ -5,11 +5,11 @@ import {
   TaskStatus,
 } from "@prisma/client";
 import { injectable } from "tsyringe";
-import { AccessScopeService } from "../../helpers/access-scope.service";
-import { ApiError } from "../../utils/api-error";
-import { PrismaService } from "../prisma/prisma.service";
-import { ProfitabilityService } from "../profitability/profitability.service";
-import { QueryProjectReportDTO } from "./dto/query-project-report.dto";
+import { AccessScopeService } from "../../../helpers/access-scope.service";
+import { ApiError } from "../../../utils/api-error";
+import { PrismaService } from "../../prisma/prisma.service";
+import { ProfitabilityService } from "../../profitability/profitability.service";
+import { QueryProjectReportDTO } from "../dto/query-project-report.dto";
 
 @injectable()
 export class ProjectReportService {

@@ -1,7 +1,7 @@
 import { NextFunction, Request, Response } from "express";
 import { injectable } from "tsyringe";
-import { QueryProjectReportDTO } from "./dto/query-project-report.dto";
-import { ProjectReportService } from "./project-report.service";
+import { QueryProjectReportDTO } from "../dto/query-project-report.dto";
+import { ProjectReportService } from "../services/project-report.service";
 
 @injectable()
 export class ProjectReportController {
