@@ -30,6 +30,7 @@ import { ProposalRouter } from "./modules/proposal/proposal.router";
 import { QuotationRouter } from "./modules/quotation/quotation.router";
 import { RbacRouter } from "./modules/rbac/rbac.router";
 import { RecurringBillingRouter } from "./modules/recurring-billing/recurring-billing.route";
+import { ProjectReportRouter } from "./modules/reporting/project-report.route";
 import { TaskAttachmentRoute } from "./modules/task/route/task-attachment.route";
 import { TaskChecklistRoute } from "./modules/task/route/task-checklist.route";
 import { TaskCommentRoute } from "./modules/task/route/task-comment.route";
@@ -96,6 +97,7 @@ export default class App {
     const financeDashboardRouter = container.resolve(FinanceDashboardRouter);
     const recurringBillingRouter = container.resolve(RecurringBillingRouter);
     const profitabilityRouter = container.resolve(ProfitabilityRouter);
+    const projectReportRouter = container.resolve(ProjectReportRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -125,6 +127,7 @@ export default class App {
     this.app.use("/finance", financeDashboardRouter.getRouter());
     this.app.use("/recurring-billings", recurringBillingRouter.getRouter());
     this.app.use("/profitability", profitabilityRouter.getRouter());
+    this.app.use("/reports", projectReportRouter.getRouter());
   }
 
   private handleError(): void {
