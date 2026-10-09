@@ -30,7 +30,8 @@ import { ProposalRouter } from "./modules/proposal/proposal.router";
 import { QuotationRouter } from "./modules/quotation/quotation.router";
 import { RbacRouter } from "./modules/rbac/rbac.router";
 import { RecurringBillingRouter } from "./modules/recurring-billing/recurring-billing.route";
-import { ProjectReportRouter } from "./modules/reporting/project-report.route";
+import { ProjectReportRouter } from "./modules/reporting/router/project-report.route";
+import { TeamWorkloadRouter } from "./modules/reporting/router/team-workload.route";
 import { TaskAttachmentRoute } from "./modules/task/route/task-attachment.route";
 import { TaskChecklistRoute } from "./modules/task/route/task-checklist.route";
 import { TaskCommentRoute } from "./modules/task/route/task-comment.route";
@@ -98,6 +99,7 @@ export default class App {
     const recurringBillingRouter = container.resolve(RecurringBillingRouter);
     const profitabilityRouter = container.resolve(ProfitabilityRouter);
     const projectReportRouter = container.resolve(ProjectReportRouter);
+    const teamWorkloadRouter = container.resolve(TeamWorkloadRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -128,6 +130,7 @@ export default class App {
     this.app.use("/recurring-billings", recurringBillingRouter.getRouter());
     this.app.use("/profitability", profitabilityRouter.getRouter());
     this.app.use("/reports", projectReportRouter.getRouter());
+    this.app.use("/reports", teamWorkloadRouter.getRouter());
   }
 
   private handleError(): void {

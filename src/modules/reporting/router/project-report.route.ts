@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { injectable } from "tsyringe";
-import { authenticateToken } from "../../middleware/auth.middleware";
-import { requirePermissions } from "../../middleware/permission.middleware";
-import { validateQuery } from "../../middleware/validateQuery.middleware";
-import { QueryProjectReportDTO } from "./dto/query-project-report.dto";
-import { ProjectReportController } from "./project-report.controller";
+import { authenticateToken } from "../../../middleware/auth.middleware";
+import { requirePermissions } from "../../../middleware/permission.middleware";
+import { validateQuery } from "../../../middleware/validateQuery.middleware";
+import { ProjectReportController } from "../controller/project-report.controller";
+import { QueryProjectReportDTO } from "../dto/query-project-report.dto";
 
 @injectable()
 export class ProjectReportRouter {
