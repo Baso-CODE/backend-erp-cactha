@@ -25,6 +25,7 @@ import { NotificationRouter } from "./modules/notification/notification.router";
 import { PaymentRouter } from "./modules/payment/payment.route";
 import { registerPerformanceProviders } from "./modules/performance/providers/register-performance-providers";
 import { PerformanceConnectionRouter } from "./modules/performance/route/performance-connection.route";
+import { PerformanceDataRouter } from "./modules/performance/route/performance-data.route";
 import { PerformanceGoogleAccountRouter } from "./modules/performance/route/performance-google-account.route";
 import { PerformanceGoogleOAuthRouter } from "./modules/performance/route/performance-google-oauth.route";
 import { PerformanceMappingRouter } from "./modules/performance/route/performance-mapping.route";
@@ -123,6 +124,7 @@ export default class App {
     const performanceGoogleAccountRouter = container.resolve(
       PerformanceGoogleAccountRouter,
     );
+    const performanceDataRouter = container.resolve(PerformanceDataRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -160,6 +162,7 @@ export default class App {
     this.app.use("/performance", performanceSyncRouter.getRouter());
     this.app.use("/performance", performanceGoogleOAuthRouter.getRouter());
     this.app.use("/performance", performanceGoogleAccountRouter.getRouter());
+    this.app.use("/performance", performanceDataRouter.getRouter());
   }
 
   private handleError(): void {
