@@ -23,6 +23,12 @@ import { LeadRouter } from "./modules/lead/lead.router";
 import { MasterServiceRouter } from "./modules/master-service/master-service.router";
 import { NotificationRouter } from "./modules/notification/notification.router";
 import { PaymentRouter } from "./modules/payment/payment.route";
+import { registerPerformanceProviders } from "./modules/performance/providers/register-performance-providers";
+import { PerformanceConnectionRouter } from "./modules/performance/route/performance-connection.route";
+import { PerformanceGoogleAccountRouter } from "./modules/performance/route/performance-google-account.route";
+import { PerformanceGoogleOAuthRouter } from "./modules/performance/route/performance-google-oauth.route";
+import { PerformanceMappingRouter } from "./modules/performance/route/performance-mapping.route";
+import { PerformanceSyncRouter } from "./modules/performance/route/performance-sync.route";
 import { ProfitabilityRouter } from "./modules/profitability/profitability.route";
 import { ProjectServiceRouter } from "./modules/project-service/project-service.route";
 import { ProjectRouter } from "./modules/project/project.router";
@@ -44,6 +50,7 @@ export default class App {
   public app;
 
   constructor() {
+    registerPerformanceProviders();
     this.app = express();
     this.configure();
     this.routes();
@@ -102,6 +109,20 @@ export default class App {
     const projectReportRouter = container.resolve(ProjectReportRouter);
     const teamWorkloadRouter = container.resolve(TeamWorkloadRouter);
     const clientKpiRouter = container.resolve(ClientKpiRouter);
+    const performanceConnectionRouter = container.resolve(
+      PerformanceConnectionRouter,
+    );
+    const performanceMappingRouter = container.resolve(
+      PerformanceMappingRouter,
+    );
+    const performanceSyncRouter = container.resolve(PerformanceSyncRouter);
+    const performanceGoogleOAuthRouter = container.resolve(
+      PerformanceGoogleOAuthRouter,
+    );
+
+    const performanceGoogleAccountRouter = container.resolve(
+      PerformanceGoogleAccountRouter,
+    );
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -134,6 +155,11 @@ export default class App {
     this.app.use("/reports", projectReportRouter.getRouter());
     this.app.use("/reports", teamWorkloadRouter.getRouter());
     this.app.use("/reports", clientKpiRouter.getRouter());
+    this.app.use("/performance", performanceConnectionRouter.getRouter());
+    this.app.use("/performance", performanceMappingRouter.getRouter());
+    this.app.use("/performance", performanceSyncRouter.getRouter());
+    this.app.use("/performance", performanceGoogleOAuthRouter.getRouter());
+    this.app.use("/performance", performanceGoogleAccountRouter.getRouter());
   }
 
   private handleError(): void {

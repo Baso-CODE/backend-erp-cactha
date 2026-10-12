@@ -307,12 +307,13 @@ model Client {
   accountManagerId String
   accountManager   User   @relation("AccountManager", fields: [accountManagerId], references: [id])
 
-  contacts         ContactPerson[]
-  contracts        Contract[]
-  projects         Project[]
-  tickets          SupportTicket[]
-  invoices         Invoice[]
-  approvalRequests ApprovalRequest[]
+  contacts            ContactPerson[]
+  contracts           Contract[]
+  projects            Project[]
+  tickets             SupportTicket[]
+  invoices            Invoice[]
+  approvalRequests    ApprovalRequest[]
+  performanceMappings PerformanceMapping[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -374,7 +375,8 @@ model Contract {
   status          ContractStatus @default(DRAFT)
   renewalReminder Boolean        @default(false)
 
-  projects          Project[]
+  projects Project[]
+
   invoices          Invoice[]
   recurringBillings RecurringBilling[]
   attachments       Attachment[]       @relation("ContractAttachments")
@@ -617,15 +619,16 @@ model Project {
   actualEndDate DateTime?
   status        ProjectStatus @default(PLANNING)
 
-  services           ProjectService[]
-  tasks              Task[]
-  deliverables       Deliverable[]
-  performanceMetrics PerformanceMetric[]
-  attachments        Attachment[]        @relation("ProjectAttachments")
-  supportTickets     SupportTicket[]
-  invoices           Invoice[]
-  budgets            ProjectBudget[]
-  costs              ProjectCost[]
+  services            ProjectService[]
+  tasks               Task[]
+  deliverables        Deliverable[]
+  performanceMetrics  PerformanceMetric[]
+  attachments         Attachment[]         @relation("ProjectAttachments")
+  supportTickets      SupportTicket[]
+  invoices            Invoice[]
+  budgets             ProjectBudget[]
+  costs               ProjectCost[]
+  performanceMappings PerformanceMapping[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -656,9 +659,10 @@ model ProjectService {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  budgets            ProjectBudget[]
-  costs              ProjectCost[]
-  revenueAllocations InvoiceRevenueAllocation[]
+  budgets             ProjectBudget[]
+  costs               ProjectCost[]
+  performanceMappings PerformanceMapping[]
+  revenueAllocations  InvoiceRevenueAllocation[]
 
   @@unique([projectId, masterServiceId])
   @@index([masterServiceId])
@@ -1204,4 +1208,175 @@ model TeamMember {
 
   @@id([teamId, userId])
   @@index([userId])
+}
+
+enum PerformancePlatform {
+  GOOGLE_ADS
+  META_ADS
+  GA4
+  SEARCH_CONSOLE
+  TIKTOK_ADS
+}
+
+enum PerformanceConnectionStatus {
+  CONNECTED
+  EXPIRED
+  ERROR
+  DISABLED
+}
+
+enum PerformanceAccountStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PerformanceSyncStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+enum PerformanceSyncMode {
+  INITIAL
+  INCREMENTAL
+  MANUAL
+}
+
+model PerformanceConnection {
+  id          String                      @id @default(uuid())
+  platform    PerformancePlatform
+  name        String
+  status      PerformanceConnectionStatus @default(DISABLED)
+  externalId  String?
+  connectedBy String
+
+  lastSuccessfulSyncAt DateTime?
+  dataThrough          DateTime?
+  nextScheduledSyncAt  DateTime?
+  syncEnabled          Boolean   @default(false)
+
+  credential PerformanceCredential?
+  accounts   PerformanceAccount[]
+  syncJobs   PerformanceSyncJob[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([platform, status])
+  @@index([syncEnabled, nextScheduledSyncAt])
+}
+
+model PerformanceCredential {
+  id                    String    @id @default(uuid())
+  connectionId          String    @unique
+  accessTokenEncrypted  String    @db.Text
+  refreshTokenEncrypted String?   @db.Text
+  tokenExpiresAt        DateTime?
+  metadataEncrypted     String?   @db.Text
+
+  connection PerformanceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PerformanceAccount {
+  id           String                   @id @default(uuid())
+  connectionId String
+  externalId   String
+  name         String
+  accountType  String
+  currency     String?
+  timezone     String?
+  status       PerformanceAccountStatus @default(ACTIVE)
+  metadata     Json?
+
+  connection PerformanceConnection    @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  mappings   PerformanceMapping[]
+  metrics    PerformanceDailyMetric[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([connectionId, externalId])
+  @@index([status])
+}
+
+model PerformanceMapping {
+  id               String  @id @default(uuid())
+  accountId        String
+  clientId         String
+  projectId        String
+  projectServiceId String?
+  isActive         Boolean @default(true)
+
+  account        PerformanceAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  client         Client             @relation(fields: [clientId], references: [id])
+  project        Project            @relation(fields: [projectId], references: [id])
+  projectService ProjectService?    @relation(fields: [projectServiceId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([accountId, isActive])
+  @@index([clientId])
+  @@index([projectId])
+  @@index([projectServiceId])
+}
+
+model PerformanceSyncJob {
+  id           String                @id @default(uuid())
+  connectionId String
+  accountId    String?
+  mode         PerformanceSyncMode
+  status       PerformanceSyncStatus @default(PENDING)
+
+  periodStart DateTime?
+  periodEnd   DateTime?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  lockedUntil DateTime?
+
+  recordsFetched  Int @default(0)
+  recordsInserted Int @default(0)
+  recordsUpdated  Int @default(0)
+  recordsFailed   Int @default(0)
+
+  errorCode    String?
+  errorMessage String? @db.Text
+
+  connection PerformanceConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([connectionId, createdAt])
+  @@index([status, lockedUntil])
+}
+
+model PerformanceDailyMetric {
+  id               String   @id @default(uuid())
+  accountId        String
+  externalEntityId String   @default("")
+  entityType       String
+  metricDate       DateTime @db.Date
+
+  impressions     BigInt  @default(0)
+  clicks          BigInt  @default(0)
+  conversions     Decimal @default(0) @db.Decimal(20, 6)
+  spend           Decimal @default(0) @db.Decimal(20, 6)
+  conversionValue Decimal @default(0) @db.Decimal(20, 6)
+
+  currency String?
+  metrics  Json
+
+  account PerformanceAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([accountId, externalEntityId, entityType, metricDate])
+  @@index([metricDate])
 }
