@@ -1,6 +1,6 @@
 import "dotenv/config";
 
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 
 import { seedPermissionRegistry } from "./seeds/permission-registry.seed";
@@ -14,37 +14,37 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL belum dikonfigurasi.");
 }
 
-const url = new URL(databaseUrl);
+if (
+  !databaseUrl.startsWith("postgresql://") &&
+  !databaseUrl.startsWith("postgres://")
+) {
+  throw new Error("DATABASE_URL harus menggunakan PostgreSQL.");
+}
 
-const adapter = new PrismaMariaDb({
-  host: url.hostname,
-  port: Number(url.port || 3306),
-  user: decodeURIComponent(url.username),
-  password: decodeURIComponent(url.password),
-  database: url.pathname.replace(/^\//, ""),
-  connectionLimit: 5,
-  connectTimeout: 15000,
-  acquireTimeout: 30000,
-  idleTimeout: 300,
+const adapter = new PrismaPg({
+  connectionString: databaseUrl,
+  max: 5,
+  connectionTimeoutMillis: 15000,
+  idleTimeoutMillis: 30000,
 });
 
 const prisma = new PrismaClient({
   adapter,
-  log: ["info", "warn", "error"],
+  log: ["warn", "error"],
 });
 
 async function main() {
-  console.log("Menjalankan database seed...");
+  console.log("Menjalankan PostgreSQL database seed...");
 
   await prisma.$connect();
-  console.log("Prisma connected.");
+  console.log("PostgreSQL connected.");
 
   await seedRoles(prisma);
   await seedPermissionRegistry(prisma);
   await seedRolePermissions(prisma);
   await seedUsers(prisma);
 
-  console.log("Database seed selesai.");
+  console.log("PostgreSQL database seed selesai.");
 }
 
 main()

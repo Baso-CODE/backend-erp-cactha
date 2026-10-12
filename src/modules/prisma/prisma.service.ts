@@ -1,4 +1,4 @@
-import { PrismaMariaDb } from "@prisma/adapter-mariadb";
+import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@prisma/client";
 import { injectable, singleton } from "tsyringe";
 
@@ -12,23 +12,17 @@ export class PrismaService extends PrismaClient {
       throw new Error("DATABASE_URL is not defined");
     }
 
-    const url = new URL(databaseUrl);
-
-    const adapter = new PrismaMariaDb({
-      host: url.hostname,
-      port: Number(url.port || 3306),
-      user: decodeURIComponent(url.username),
-      password: decodeURIComponent(url.password),
-      database: url.pathname.replace(/^\//, ""),
-      connectionLimit: 10,
-      acquireTimeout: 10000,
-      connectTimeout: 5000,
-      idleTimeout: 300,
+    const adapter = new PrismaPg({
+      connectionString: databaseUrl,
+      max: 10,
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 30000,
     });
 
     super({
       adapter,
-      log: ["query", "info", "warn", "error"],
+      log:
+        process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
     });
 
     this.setupShutdownHandler();
@@ -41,7 +35,12 @@ export class PrismaService extends PrismaClient {
       process.exit(0);
     };
 
-    process.on("SIGINT", () => gracefulShutdown("SIGINT"));
-    process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+    process.once("SIGINT", () => {
+      void gracefulShutdown("SIGINT");
+    });
+
+    process.once("SIGTERM", () => {
+      void gracefulShutdown("SIGTERM");
+    });
   }
 }
