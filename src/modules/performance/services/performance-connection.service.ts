@@ -41,6 +41,25 @@ export class PerformanceConnectionService {
     private readonly accessScopeService: AccessScopeService,
   ) {}
 
+  private async assertManageScope(
+    actorId: string,
+    permission:
+      | "performance.connection.create"
+      | "performance.connection.update",
+  ): Promise<void> {
+    const scope = await this.accessScopeService.getPermissionScope(
+      actorId,
+      permission,
+    );
+
+    if (scope !== AccessScope.ALL) {
+      throw new ApiError(
+        "Scope ALL diperlukan untuk mengelola Connection.",
+        403,
+      );
+    }
+  }
+
   private async getReadWhere(
     actorId: string,
   ): Promise<Prisma.PerformanceConnectionWhereInput> {
@@ -56,7 +75,9 @@ export class PerformanceConnectionService {
         return { connectedBy: actorId };
       case AccessScope.TEAM: {
         const members = await this.accessScopeService.getTeamMemberIds(actorId);
-        return { connectedBy: { in: [...new Set([actorId, ...members])] } };
+        return {
+          connectedBy: { in: [...new Set([actorId, ...members])] },
+        };
       }
       case AccessScope.PROJECT:
         return {
@@ -71,6 +92,11 @@ export class PerformanceConnectionService {
             },
           },
         };
+      case AccessScope.CLIENT:
+        throw new ApiError(
+          "Scope CLIENT tidak didukung untuk Connection.",
+          403,
+        );
       default:
         throw new ApiError(
           `Scope ${scope} tidak didukung untuk Connection.`,
@@ -108,7 +134,12 @@ export class PerformanceConnectionService {
 
     return {
       data,
-      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     };
   }
 
@@ -128,8 +159,9 @@ export class PerformanceConnectionService {
   }
 
   async create(dto: CreatePerformanceConnectionDTO, actorId: string) {
-    const name = dto.name.trim();
+    await this.assertManageScope(actorId, "performance.connection.create");
 
+    const name = dto.name.trim();
     if (name.length < 2) {
       throw new ApiError("Nama connection minimal 2 karakter.", 400);
     }
@@ -146,7 +178,13 @@ export class PerformanceConnectionService {
     });
   }
 
-  async update(id: string, dto: UpdatePerformanceConnectionDTO) {
+  async update(
+    id: string,
+    dto: UpdatePerformanceConnectionDTO,
+    actorId: string,
+  ) {
+    await this.assertManageScope(actorId, "performance.connection.update");
+
     const existing = await this.prisma.performanceConnection.findUnique({
       where: { id },
       select: { id: true, status: true },
@@ -171,19 +209,37 @@ export class PerformanceConnectionService {
       throw new ApiError("Nama connection minimal 2 karakter.", 400);
     }
 
-    return this.prisma.performanceConnection.update({
-      where: { id },
+    const updated = await this.prisma.performanceConnection.updateMany({
+      where: {
+        id,
+        ...(dto.syncEnabled === true && {
+          status: PerformanceConnectionStatus.CONNECTED,
+        }),
+      },
       data: {
         ...(name !== undefined && { name }),
         ...(dto.syncEnabled !== undefined && {
           syncEnabled: dto.syncEnabled,
         }),
       },
+    });
+
+    if (updated.count !== 1) {
+      throw new ApiError(
+        "Connection berubah status. Silakan refresh dan coba kembali.",
+        409,
+      );
+    }
+
+    return this.prisma.performanceConnection.findUniqueOrThrow({
+      where: { id },
       select: connectionSelect,
     });
   }
 
-  async disable(id: string) {
+  async disable(id: string, actorId: string) {
+    await this.assertManageScope(actorId, "performance.connection.update");
+
     const existing = await this.prisma.performanceConnection.findUnique({
       where: { id },
       select: { id: true },

@@ -1,3 +1,4 @@
+import { AccessScope } from "@prisma/client";
 import { isUUID } from "class-validator";
 import { NextFunction, Request, Response } from "express";
 import { injectable } from "tsyringe";
@@ -7,6 +8,14 @@ import { PerformanceGoogleOAuthService } from "../services/performance-google-oa
 
 const COOKIE_NAME = "performance_google_oauth_nonce";
 const COOKIE_PATH = "/performance/oauth/google";
+const COOKIE_MAX_AGE = 5 * 60 * 1000;
+
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: COOKIE_PATH,
+};
 
 @injectable()
 export class PerformanceGoogleOAuthController {
@@ -15,14 +24,22 @@ export class PerformanceGoogleOAuthController {
     private readonly scopes: AccessScopeService,
   ) {}
 
+  private clearNonce(res: Response): void {
+    res.clearCookie(COOKIE_NAME, cookieOptions);
+  }
+
   start = async (
     req: Request,
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const actorId = (req as any).user.id as string;
+      const actorId = (req as any).user?.id as string | undefined;
       const connectionId = String(req.params.connectionId ?? "");
+
+      if (!actorId) {
+        throw new ApiError("Autentikasi tidak valid.", 401);
+      }
 
       if (!isUUID(connectionId, "4")) {
         throw new ApiError("Connection ID tidak valid.", 400);
@@ -33,7 +50,7 @@ export class PerformanceGoogleOAuthController {
         "performance.connection.update",
       );
 
-      if (scope !== "ALL") {
+      if (scope !== AccessScope.ALL) {
         throw new ApiError(
           "Scope ALL diperlukan untuk menghubungkan akun.",
           403,
@@ -46,13 +63,11 @@ export class PerformanceGoogleOAuthController {
       );
 
       res.cookie(COOKIE_NAME, result.nonce, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: COOKIE_PATH,
-        maxAge: 5 * 60 * 1000,
+        ...cookieOptions,
+        maxAge: COOKIE_MAX_AGE,
       });
 
+      res.setHeader("Cache-Control", "no-store");
       res.redirect(302, result.url);
     } catch (error) {
       next(error);
@@ -64,40 +79,42 @@ export class PerformanceGoogleOAuthController {
     res: Response,
     next: NextFunction,
   ): Promise<void> => {
-    const clearNonce = () => {
-      res.clearCookie(COOKIE_NAME, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        path: COOKIE_PATH,
-      });
-    };
-
     try {
-      const code = typeof req.query.code === "string" ? req.query.code : "";
-      const state = typeof req.query.state === "string" ? req.query.state : "";
+      const code = req.query.code;
+      const state = req.query.state;
       const nonce = req.cookies?.[COOKIE_NAME];
 
       if (typeof req.query.error === "string") {
-        clearNonce();
         throw new ApiError("Google OAuth ditolak atau dibatalkan.", 400);
       }
 
-      if (!code || !state || typeof nonce !== "string") {
-        clearNonce();
-        throw new ApiError("Parameter Google OAuth tidak lengkap.", 400);
+      if (
+        typeof code !== "string" ||
+        typeof state !== "string" ||
+        typeof nonce !== "string" ||
+        !code ||
+        !state ||
+        !nonce ||
+        state.length > 8192
+      ) {
+        throw new ApiError(
+          "Parameter Google OAuth tidak lengkap atau tidak valid.",
+          400,
+        );
       }
 
-      clearNonce();
+      this.clearNonce(res);
+
       const result = await this.service.handleCallback(code, state, nonce);
 
+      res.setHeader("Cache-Control", "no-store");
       res.status(200).json({
         success: true,
         message: "Google OAuth berhasil. Silakan kembali ke ERP Catha.",
         data: result,
       });
     } catch (error) {
-      clearNonce();
+      this.clearNonce(res);
       next(error);
     }
   };

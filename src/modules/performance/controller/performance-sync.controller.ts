@@ -35,10 +35,13 @@ export class PerformanceSyncController {
   execute = async (req: Request, res: Response, next: NextFunction) => {
     try {
       await this.requireAll(req, "performance.sync.execute");
+
       const data = await this.service.execute(
         this.getConnectionId(req),
         req.body as ExecutePerformanceSyncDTO,
+        (req as any).user.id,
       );
+
       res.status(200).json({ success: true, data });
     } catch (error) {
       next(error);
