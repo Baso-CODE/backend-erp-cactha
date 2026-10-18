@@ -1380,3 +1380,15 @@ model PerformanceDailyMetric {
   @@unique([accountId, externalEntityId, entityType, metricDate])
   @@index([metricDate])
 }
+
+model PerformanceOAuthState {
+  id           String   @id @default(uuid())
+  connectionId String
+  actorId      String
+  nonceHash    String   @db.VarChar(64)
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  @@index([connectionId])
+  @@index([expiresAt])
+}

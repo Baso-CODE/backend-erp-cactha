@@ -58,7 +58,9 @@ export class PerformanceConnectionController {
       const data = await this.service.update(
         this.id(req),
         req.body as UpdatePerformanceConnectionDTO,
+        (req as any).user.id,
       );
+
       res.status(200).json({ success: true, data });
     } catch (error) {
       next(error);
@@ -67,7 +69,10 @@ export class PerformanceConnectionController {
 
   disable = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const data = await this.service.disable(this.id(req));
+      const data = await this.service.disable(
+        this.id(req),
+        (req as any).user.id,
+      );
       res.status(200).json({ success: true, data });
     } catch (error) {
       next(error);

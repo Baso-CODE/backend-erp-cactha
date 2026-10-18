@@ -17,9 +17,17 @@ export class PerformanceMappingController {
     private readonly scopes: AccessScopeService,
   ) {}
 
-  private async requireAll(req: Request, permission: string) {
+  private actorId(req: Request): string {
+    const id = (req as any).user?.id;
+    if (typeof id !== "string" || !id) {
+      throw new ApiError("Autentikasi tidak valid.", 401);
+    }
+    return id;
+  }
+
+  private async requireAll(req: Request, permission: string): Promise<void> {
     const scope = await this.scopes.getPermissionScope(
-      (req as any).user.id,
+      this.actorId(req),
       permission,
     );
     if (scope !== AccessScope.ALL) {
@@ -32,7 +40,6 @@ export class PerformanceMappingController {
 
   getAll = async (req: Request, res: Response, next: NextFunction) => {
     try {
-      await this.requireAll(req, "performance.mapping.read");
       const accountId = req.query.accountId;
       if (
         accountId !== undefined &&
@@ -40,7 +47,12 @@ export class PerformanceMappingController {
       ) {
         throw new ApiError("accountId tidak valid.", 400);
       }
-      const data = await this.service.getAll(accountId as string | undefined);
+
+      const data = await this.service.getAll(
+        accountId as string | undefined,
+        this.actorId(req),
+      );
+
       res.status(200).json({ success: true, data });
     } catch (error) {
       next(error);
@@ -50,9 +62,12 @@ export class PerformanceMappingController {
   create = async (req: Request, res: Response, next: NextFunction) => {
     try {
       await this.requireAll(req, "performance.mapping.create");
+
       const data = await this.service.create(
         req.body as CreatePerformanceMappingDTO,
+        this.actorId(req),
       );
+
       res.status(201).json({ success: true, data });
     } catch (error) {
       next(error);
@@ -62,12 +77,18 @@ export class PerformanceMappingController {
   update = async (req: Request, res: Response, next: NextFunction) => {
     try {
       await this.requireAll(req, "performance.mapping.update");
+
       const id = String(req.params.id ?? "");
-      if (!isUUID(id, "4")) throw new ApiError("Mapping ID tidak valid.", 400);
+      if (!isUUID(id, "4")) {
+        throw new ApiError("Mapping ID tidak valid.", 400);
+      }
+
       const data = await this.service.update(
         id,
         req.body as UpdatePerformanceMappingDTO,
+        this.actorId(req),
       );
+
       res.status(200).json({ success: true, data });
     } catch (error) {
       next(error);
