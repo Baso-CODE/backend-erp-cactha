@@ -172,6 +172,48 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isTemporaryError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  const e = error as {
+    status?: number;
+    statusCode?: number;
+    code?: string | number;
+    message?: string;
+  };
+
+  const status = Number(e.status ?? e.statusCode ?? e.code);
+
+  if ([408, 429, 500, 502, 503, 504].includes(status)) {
+    return true;
+  }
+
+  const code = String(e.code ?? "").toUpperCase();
+
+  if (
+    [
+      "ETIMEDOUT",
+      "ECONNRESET",
+      "ECONNREFUSED",
+      "EAI_AGAIN",
+      "UND_ERR_CONNECT_TIMEOUT",
+      "UND_ERR_HEADERS_TIMEOUT",
+    ].includes(code)
+  ) {
+    return true;
+  }
+
+  const message = String(e.message ?? "");
+
+  return /rate.limit|resource.exhausted|temporarily.unavailable|timeout|deadline.exceeded|quota.exceeded|too.many.requests/i.test(
+    message,
+  );
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 @injectable()
 export class PerformanceSyncService {
   constructor(
