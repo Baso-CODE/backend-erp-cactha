@@ -13,6 +13,8 @@ import { PerformanceMetricRecord } from "../providers/performance-provider.inter
 import { PerformanceProviderRegistry } from "../providers/performance-provider.registry";
 import { PerformanceCryptoService } from "../security/performance-crypto.service";
 import { PerformanceGoogleTokenService } from "./performance-google-token.service";
+import { PerformanceMetaTokenService } from "./performance-meta-token.service";
+import { PerformanceTikTokTokenService } from "./performance-tiktok-token.service";
 
 const GOOGLE_PLATFORMS: PerformancePlatform[] = [
   "GOOGLE_ADS",
@@ -170,6 +172,48 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isTemporaryError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+
+  const e = error as {
+    status?: number;
+    statusCode?: number;
+    code?: string | number;
+    message?: string;
+  };
+
+  const status = Number(e.status ?? e.statusCode ?? e.code);
+
+  if ([408, 429, 500, 502, 503, 504].includes(status)) {
+    return true;
+  }
+
+  const code = String(e.code ?? "").toUpperCase();
+
+  if (
+    [
+      "ETIMEDOUT",
+      "ECONNRESET",
+      "ECONNREFUSED",
+      "EAI_AGAIN",
+      "UND_ERR_CONNECT_TIMEOUT",
+      "UND_ERR_HEADERS_TIMEOUT",
+    ].includes(code)
+  ) {
+    return true;
+  }
+
+  const message = String(e.message ?? "");
+
+  return /rate.limit|resource.exhausted|temporarily.unavailable|timeout|deadline.exceeded|quota.exceeded|too.many.requests/i.test(
+    message,
+  );
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 @injectable()
 export class PerformanceSyncService {
   constructor(
@@ -177,6 +221,8 @@ export class PerformanceSyncService {
     private readonly registry: PerformanceProviderRegistry,
     private readonly crypto: PerformanceCryptoService,
     private readonly googleTokens: PerformanceGoogleTokenService,
+    private readonly metaTokens: PerformanceMetaTokenService,
+    private readonly tiktokTokens: PerformanceTikTokTokenService,
   ) {}
 
   async getLogs(connectionId: string, page = 1, limit = 10) {
@@ -530,15 +576,11 @@ export class PerformanceSyncService {
     }, HEARTBEAT_MS);
 
     try {
-      const accessToken = GOOGLE_PLATFORMS.includes(connection.platform)
-        ? await this.googleTokens.getAccessToken(connectionId)
-        : this.crypto.decrypt(connection.credential.accessTokenEncrypted);
-
-      const refreshToken = GOOGLE_PLATFORMS.includes(connection.platform)
-        ? null
-        : connection.credential.refreshTokenEncrypted
-          ? this.crypto.decrypt(connection.credential.refreshTokenEncrypted)
-          : null;
+      const { accessToken, refreshToken } = await this.resolveCredential(
+        connectionId,
+        connection.platform,
+        connection.credential,
+      );
 
       for (const account of accounts) {
         assertActive();
@@ -775,5 +817,39 @@ export class PerformanceSyncService {
     } finally {
       clearInterval(timer);
     }
+  }
+
+  private async resolveCredential(
+    connectionId: string,
+    platform: PerformancePlatform,
+    credential: {
+      accessTokenEncrypted: string;
+      refreshTokenEncrypted: string | null;
+      tokenExpiresAt: Date | null;
+    },
+  ): Promise<{ accessToken: string; refreshToken: string | null }> {
+    if (GOOGLE_PLATFORMS.includes(platform)) {
+      return {
+        accessToken: await this.googleTokens.getAccessToken(connectionId),
+        refreshToken: null,
+      };
+    }
+
+    if (platform === PerformancePlatform.META_ADS) {
+      return {
+        accessToken: await this.metaTokens.getAccessToken(connectionId),
+        refreshToken: null,
+      };
+    }
+
+    if (platform === PerformancePlatform.TIKTOK_ADS) {
+      return {
+        accessToken:
+          await this.tiktokTokens.getValidatedAccessToken(connectionId),
+        refreshToken: null,
+      };
+    }
+
+    throw new ApiError("Platform Performance tidak didukung.", 400);
   }
 }

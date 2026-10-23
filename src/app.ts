@@ -29,7 +29,11 @@ import { PerformanceDataRouter } from "./modules/performance/route/performance-d
 import { PerformanceGoogleAccountRouter } from "./modules/performance/route/performance-google-account.route";
 import { PerformanceGoogleOAuthRouter } from "./modules/performance/route/performance-google-oauth.route";
 import { PerformanceMappingRouter } from "./modules/performance/route/performance-mapping.route";
+import { PerformanceMetaAccountRouter } from "./modules/performance/route/performance-meta-account.route";
+import { PerformanceMetaOAuthRouter } from "./modules/performance/route/performance-meta-oauth.route";
 import { PerformanceSyncRouter } from "./modules/performance/route/performance-sync.route";
+import { PerformanceTikTokAccountRouter } from "./modules/performance/route/performance-tiktok-account.route";
+import { PerformanceTikTokOAuthRouter } from "./modules/performance/route/performance-tiktok-oauth.route";
 import { ProfitabilityRouter } from "./modules/profitability/profitability.route";
 import { ProjectServiceRouter } from "./modules/project-service/project-service.route";
 import { ProjectRouter } from "./modules/project/project.router";
@@ -125,6 +129,19 @@ export default class App {
       PerformanceGoogleAccountRouter,
     );
     const performanceDataRouter = container.resolve(PerformanceDataRouter);
+    const performanceMetaOAuthRouter = container.resolve(
+      PerformanceMetaOAuthRouter,
+    );
+
+    const performanceMetaAccountRouter = container.resolve(
+      PerformanceMetaAccountRouter,
+    );
+    const performanceTikTokOAuthRouter = container.resolve(
+      PerformanceTikTokOAuthRouter,
+    );
+    const performanceTikTokAccountRouter = container.resolve(
+      PerformanceTikTokAccountRouter,
+    );
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -163,6 +180,10 @@ export default class App {
     this.app.use("/performance", performanceGoogleOAuthRouter.getRouter());
     this.app.use("/performance", performanceGoogleAccountRouter.getRouter());
     this.app.use("/performance", performanceDataRouter.getRouter());
+    this.app.use("/performance", performanceMetaOAuthRouter.getRouter());
+    this.app.use("/performance", performanceMetaAccountRouter.getRouter());
+    this.app.use("/performance", performanceTikTokOAuthRouter.getRouter());
+    this.app.use("/performance", performanceTikTokAccountRouter.getRouter());
   }
 
   private handleError(): void {
