@@ -17,7 +17,7 @@ export class ProjectServiceController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const actorId = (req as any).user.userId;
+      const actorId = (req as any).user.id;
       const query = (req as any).validatedQuery as QueryProjectServiceDTO;
 
       const result = await this.projectServiceService.getProjectServices(
@@ -41,7 +41,7 @@ export class ProjectServiceController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const actorId = (req as any).user.userId;
+      const actorId = (req as any).user.id;
       const id = getStringParam(req.params.id);
 
       const data = await this.projectServiceService.getProjectServiceById(
@@ -65,7 +65,7 @@ export class ProjectServiceController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const actorId = (req as any).user.userId;
+      const actorId = (req as any).user.id;
       const payload = req.body as CreateProjectServiceDTO;
 
       const data = await this.projectServiceService.createProjectService(
@@ -89,7 +89,7 @@ export class ProjectServiceController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const actorId = (req as any).user.userId;
+      const actorId = (req as any).user.id;
       const id = getStringParam(req.params.id);
       const payload = req.body as UpdateProjectServiceDTO;
 
@@ -115,7 +115,7 @@ export class ProjectServiceController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const actorId = (req as any).user.userId;
+      const actorId = (req as any).user.id;
       const id = getStringParam(req.params.id);
 
       const result = await this.projectServiceService.deleteProjectService(

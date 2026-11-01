@@ -16,6 +16,8 @@ import { AuthRouter } from "./modules/auth/auth.router";
 import { ClientPortalRouter } from "./modules/client-portal/client-portal.router";
 import { ClientRouter } from "./modules/client/client.route";
 import { ContactPersonRouter } from "./modules/contact-person/contact-person.route";
+import { ContractRenewalWorkflowRouter } from "./modules/contract/contract-renewal-workflow.route";
+import { ContractRenewalRouter } from "./modules/contract/contract-renewal.route";
 import { ContractRouter } from "./modules/contract/contract.route";
 import { FinanceDashboardRouter } from "./modules/finance/finance-dashboard.route";
 import { InvoiceRouter } from "./modules/invoice/invoice.router";
@@ -114,6 +116,11 @@ export default class App {
     const projectReportRouter = container.resolve(ProjectReportRouter);
     const teamWorkloadRouter = container.resolve(TeamWorkloadRouter);
     const clientKpiRouter = container.resolve(ClientKpiRouter);
+    const contractRenewalRouter = container.resolve(ContractRenewalRouter);
+    const contractRenewalWorkflowRouter = container.resolve(
+      ContractRenewalWorkflowRouter,
+    );
+
     const performanceConnectionRouter = container.resolve(
       PerformanceConnectionRouter,
     );
@@ -155,6 +162,8 @@ export default class App {
     this.app.use("/clients", clientRouter.getRouter());
     this.app.use("/contact-persons", contactPersonRouter.getRouter());
     this.app.use("/contracts", contractRouter.getRouter());
+    this.app.use("/contracts", contractRenewalRouter.getRouter());
+    this.app.use("/contracts", contractRenewalWorkflowRouter.getRouter());
     this.app.use("/master-services", masterServiceRouter.getRouter());
     this.app.use("/workflow-templates", workflowTemplateRouter.getRouter());
     this.app.use("/projects", projectRouter.getRouter());
