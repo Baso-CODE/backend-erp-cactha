@@ -381,6 +381,10 @@ model Contract {
   recurringBillings RecurringBilling[]
   attachments       Attachment[]       @relation("ContractAttachments")
 
+  renewedFromId String?   @unique
+  renewedFrom   Contract? @relation("ContractRenewal", fields: [renewedFromId], references: [id], onDelete: Restrict)
+  renewedTo     Contract? @relation("ContractRenewal")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
