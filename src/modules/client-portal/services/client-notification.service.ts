@@ -18,17 +18,42 @@ export class ClientNotificationService {
     private readonly access: ClientPortalAccessService,
   ) {}
 
-  private getWhere(actorId: string): Prisma.NotificationWhereInput {
+  private getWhere(
+    actorId: string,
+    clientId: string,
+  ): Prisma.NotificationWhereInput {
     return {
       recipientId: actorId,
-      type: {
-        in: CLIENT_NOTIFICATION_TYPES,
-      },
-    };
-  }
 
-  private async checkAccess(actorId: string) {
-    return this.access.getClientContext(actorId);
+      OR: [
+        {
+          type: {
+            in: CLIENT_NOTIFICATION_TYPES,
+          },
+        },
+
+        // Hanya SYSTEM notification khusus Support Ticket client.
+        // SYSTEM notification untuk tim internal tetap tersembunyi.
+        {
+          type: NotificationType.SYSTEM,
+          entity: "SupportTicket",
+          AND: [
+            {
+              metadata: {
+                path: ["audience"],
+                equals: "CLIENT",
+              },
+            },
+            {
+              metadata: {
+                path: ["clientId"],
+                equals: clientId,
+              },
+            },
+          ],
+        },
+      ],
+    };
   }
 
   async getAll(
@@ -39,16 +64,18 @@ export class ClientNotificationService {
       isRead?: boolean;
     },
   ) {
-    await this.checkAccess(actorId);
+    const context = await this.access.getClientContext(actorId);
 
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 20;
+    const page = Math.max(1, query.page ?? 1);
+    const limit = Math.min(100, Math.max(1, query.limit ?? 20));
+
+    const baseWhere = this.getWhere(actorId, context.clientId);
 
     const where: Prisma.NotificationWhereInput = {
-      ...this.getWhere(actorId),
-      ...(query.isRead !== undefined && {
-        isRead: query.isRead,
-      }),
+      AND: [
+        baseWhere,
+        ...(query.isRead !== undefined ? [{ isRead: query.isRead }] : []),
+      ],
     };
 
     const [notifications, total, unreadCount] = await this.prisma.$transaction([
@@ -58,6 +85,7 @@ export class ClientNotificationService {
         skip: (page - 1) * limit,
         take: limit,
         select: {
+          entityId: true,
           id: true,
           type: true,
           title: true,
@@ -68,25 +96,28 @@ export class ClientNotificationService {
         },
       }),
 
-      this.prisma.notification.count({ where }),
+      this.prisma.notification.count({
+        where,
+      }),
 
       this.prisma.notification.count({
         where: {
-          ...this.getWhere(actorId),
-          isRead: false,
+          AND: [baseWhere, { isRead: false }],
         },
       }),
     ]);
 
     return {
-      data: notifications.map((item) => ({
+      data: notifications.map(({ entityId, ...item }) => ({
         ...item,
-        // Jangan mengekspos actionUrl/metadata internal.
         actionUrl:
-          item.type === NotificationType.PROJECT_UPDATED
-            ? "/portal/projects"
-            : "/portal/approvals",
+          item.type === NotificationType.SYSTEM && entityId
+            ? `/portal/support/${encodeURIComponent(entityId)}`
+            : item.type === NotificationType.PROJECT_UPDATED
+              ? "/portal/projects"
+              : "/portal/approvals",
       })),
+
       meta: {
         page,
         limit,
@@ -98,13 +129,16 @@ export class ClientNotificationService {
   }
 
   async markAsRead(notificationId: string, actorId: string) {
-    await this.checkAccess(actorId);
+    const context = await this.access.getClientContext(actorId);
+
+    const where: Prisma.NotificationWhereInput = {
+      id: notificationId,
+      AND: [this.getWhere(actorId, context.clientId)],
+    };
 
     const result = await this.prisma.notification.updateMany({
       where: {
-        id: notificationId,
-        ...this.getWhere(actorId),
-        isRead: false,
+        AND: [where, { isRead: false }],
       },
       data: {
         isRead: true,
@@ -114,16 +148,15 @@ export class ClientNotificationService {
 
     if (result.count === 0) {
       const existing = await this.prisma.notification.findFirst({
-        where: {
-          id: notificationId,
-          ...this.getWhere(actorId),
+        where,
+        select: {
+          id: true,
         },
-        select: { id: true },
       });
 
       if (!existing) {
         throw new ApiError(
-          "Notifikasi tidak ditemukan atau tidak dapat diakses.",
+          "Notifikasi tidak ditemukan atau akses ditolak.",
           404,
         );
       }
@@ -136,12 +169,11 @@ export class ClientNotificationService {
   }
 
   async markAllAsRead(actorId: string) {
-    await this.checkAccess(actorId);
+    const context = await this.access.getClientContext(actorId);
 
     const result = await this.prisma.notification.updateMany({
       where: {
-        ...this.getWhere(actorId),
-        isRead: false,
+        AND: [this.getWhere(actorId, context.clientId), { isRead: false }],
       },
       data: {
         isRead: true,

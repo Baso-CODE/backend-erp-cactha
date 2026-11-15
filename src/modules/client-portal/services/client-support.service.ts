@@ -7,6 +7,7 @@ import { injectable } from "tsyringe";
 
 import { ApiError } from "../../../utils/api-error";
 import { PrismaService } from "../../prisma/prisma.service";
+import { SupportTicketNotificationService } from "../../support-ticket/support-ticket-notification.service";
 import { CreateClientSupportMessageDTO } from "../dto/create-client-support-message.dto";
 import { CreateClientSupportDTO } from "../dto/create-client-support.dto";
 import { QueryClientSupportDTO } from "../dto/query-client-support.dto";
@@ -17,6 +18,7 @@ export class ClientSupportService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly clientPortalAccessService: ClientPortalAccessService,
+    private readonly ticketNotifications: SupportTicketNotificationService,
   ) {}
 
   async getTickets(query: QueryClientSupportDTO, actorId: string) {
@@ -236,6 +238,12 @@ export class ClientSupportService {
         },
       });
 
+      await this.ticketNotifications.notifyInternal(
+        tx,
+        ticket.id,
+        actorId,
+        "CREATED",
+      );
       return ticket;
     });
   }
@@ -248,37 +256,50 @@ export class ClientSupportService {
     const context =
       await this.clientPortalAccessService.getClientContext(actorId);
 
-    const ticket = await this.prisma.supportTicket.findFirst({
-      where: {
-        id: ticketId,
-        clientId: context.clientId,
-      },
-      select: {
-        id: true,
-        status: true,
-      },
-    });
+    const content = data.message?.trim();
 
-    if (!ticket) {
-      throw new ApiError(
-        "Support ticket tidak ditemukan atau tidak dapat diakses.",
-        404,
-      );
-    }
-
-    if (ticket.status === SupportTicketStatus.CLOSED) {
-      throw new ApiError(
-        "Support ticket yang sudah ditutup tidak dapat menerima pesan baru.",
-        400,
-      );
+    if (!content || content.length > 10000) {
+      throw new ApiError("Pesan wajib diisi dan maksimal 10000 karakter.", 400);
     }
 
     return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`
+      SELECT pg_advisory_xact_lock(
+        hashtext('support-ticket'),
+        hashtext(${ticketId})
+      )
+    `;
+
+      const ticket = await tx.supportTicket.findFirst({
+        where: {
+          id: ticketId,
+          clientId: context.clientId,
+        },
+        select: {
+          id: true,
+          status: true,
+        },
+      });
+
+      if (!ticket) {
+        throw new ApiError(
+          "Support ticket tidak ditemukan atau akses ditolak.",
+          404,
+        );
+      }
+
+      if (ticket.status === SupportTicketStatus.CLOSED) {
+        throw new ApiError(
+          "Tiket yang sudah ditutup tidak dapat dibalas.",
+          409,
+        );
+      }
+
       const message = await tx.supportTicketMessage.create({
         data: {
           ticketId,
           authorId: actorId,
-          message: data.message.trim(),
+          message: content,
         },
         select: {
           id: true,
@@ -293,25 +314,16 @@ export class ClientSupportService {
         },
       });
 
-      if (ticket.status === SupportTicketStatus.WAITING_CLIENT) {
-        await tx.supportTicket.update({
-          where: {
-            id: ticketId,
-          },
-          data: {
-            status: SupportTicketStatus.IN_PROGRESS,
-          },
-        });
-      } else {
-        await tx.supportTicket.update({
-          where: {
-            id: ticketId,
-          },
-          data: {
-            updatedAt: new Date(),
-          },
-        });
-      }
+      await tx.supportTicket.update({
+        where: { id: ticketId },
+        data: {
+          status:
+            ticket.status === SupportTicketStatus.WAITING_CLIENT ||
+            ticket.status === SupportTicketStatus.RESOLVED
+              ? SupportTicketStatus.IN_PROGRESS
+              : ticket.status,
+        },
+      });
 
       await tx.auditLog.create({
         data: {
@@ -325,6 +337,13 @@ export class ClientSupportService {
           },
         },
       });
+
+      await this.ticketNotifications.notifyInternal(
+        tx,
+        ticketId,
+        actorId,
+        "CLIENT_REPLIED",
+      );
 
       return message;
     });

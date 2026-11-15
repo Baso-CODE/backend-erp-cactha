@@ -47,6 +47,7 @@ import { RecurringBillingRouter } from "./modules/recurring-billing/recurring-bi
 import { ClientKpiRouter } from "./modules/reporting/router/client-kpi.route";
 import { ProjectReportRouter } from "./modules/reporting/router/project-report.route";
 import { TeamWorkloadRouter } from "./modules/reporting/router/team-workload.route";
+import { SupportTicketRouter } from "./modules/support-ticket/support-ticket.router";
 import { TaskAttachmentRoute } from "./modules/task/route/task-attachment.route";
 import { TaskChecklistRoute } from "./modules/task/route/task-checklist.route";
 import { TaskCommentRoute } from "./modules/task/route/task-comment.route";
@@ -151,6 +152,7 @@ export default class App {
     const performanceTikTokAccountRouter = container.resolve(
       PerformanceTikTokAccountRouter,
     );
+    const supportTicketRouter = container.resolve(SupportTicketRouter);
 
     this.app.get("/", (_, res) => {
       res.send("Welcome");
@@ -196,6 +198,7 @@ export default class App {
     this.app.use("/performance", performanceTikTokOAuthRouter.getRouter());
     this.app.use("/performance", performanceTikTokAccountRouter.getRouter());
     this.app.use("/deliverables", deliverableRouter.getRouter());
+    this.app.use("/support-tickets", supportTicketRouter.getRouter());
   }
 
   private handleError(): void {

@@ -1,5 +1,6 @@
 import { Prisma } from "@prisma/client";
 import { NextFunction, Request, Response } from "express";
+import multer from "multer";
 import { ApiError } from "../utils/api-error";
 
 export function errorMiddleware(
@@ -8,6 +9,16 @@ export function errorMiddleware(
   res: Response,
   _next: NextFunction,
 ) {
+  if (err instanceof multer.MulterError) {
+    res.status(err.code === "LIMIT_FILE_SIZE" ? 413 : 400).json({
+      success: false,
+      message:
+        err.code === "LIMIT_FILE_SIZE"
+          ? "Ukuran file maksimal 10 MB."
+          : "Upload file tidak valid.",
+    });
+    return;
+  }
   if (err instanceof Prisma.PrismaClientKnownRequestError) {
     console.error("❌ Prisma Client Error:", err);
     switch (err.code) {
