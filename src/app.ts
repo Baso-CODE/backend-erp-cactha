@@ -19,6 +19,7 @@ import { ContactPersonRouter } from "./modules/contact-person/contact-person.rou
 import { ContractRenewalWorkflowRouter } from "./modules/contract/contract-renewal-workflow.route";
 import { ContractRenewalRouter } from "./modules/contract/contract-renewal.route";
 import { ContractRouter } from "./modules/contract/contract.route";
+import { DeliverableRouter } from "./modules/deliverable/deliverable.router";
 import { FinanceDashboardRouter } from "./modules/finance/finance-dashboard.route";
 import { InvoiceRouter } from "./modules/invoice/invoice.router";
 import { LeadRouter } from "./modules/lead/lead.router";
@@ -117,6 +118,7 @@ export default class App {
     const teamWorkloadRouter = container.resolve(TeamWorkloadRouter);
     const clientKpiRouter = container.resolve(ClientKpiRouter);
     const contractRenewalRouter = container.resolve(ContractRenewalRouter);
+    const deliverableRouter = container.resolve(DeliverableRouter);
     const contractRenewalWorkflowRouter = container.resolve(
       ContractRenewalWorkflowRouter,
     );
@@ -193,6 +195,7 @@ export default class App {
     this.app.use("/performance", performanceMetaAccountRouter.getRouter());
     this.app.use("/performance", performanceTikTokOAuthRouter.getRouter());
     this.app.use("/performance", performanceTikTokAccountRouter.getRouter());
+    this.app.use("/deliverables", deliverableRouter.getRouter());
   }
 
   private handleError(): void {
