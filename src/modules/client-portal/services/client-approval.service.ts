@@ -16,19 +16,27 @@ export class ClientApprovalService {
     const context =
       await this.clientPortalAccessService.getClientContext(actorId);
 
-    return this.prisma.approvalRequest.findMany({
+    const approvals = await this.prisma.approvalRequest.findMany({
       where: {
         clientId: context.clientId,
+        deliverable: {
+          project: {
+            clientId: context.clientId,
+          },
+        },
       },
+
       orderBy: {
         requestedAt: "desc",
       },
+
       select: {
         id: true,
         status: true,
         feedback: true,
         requestedAt: true,
         respondedAt: true,
+
         approver: {
           select: {
             id: true,
@@ -36,17 +44,18 @@ export class ClientApprovalService {
             email: true,
           },
         },
+
         deliverable: {
           select: {
             id: true,
             name: true,
             version: true,
             description: true,
-            fileUrl: true,
             status: true,
             dueDate: true,
             submittedAt: true,
             approvedAt: true,
+
             project: {
               select: {
                 id: true,
@@ -54,9 +63,42 @@ export class ClientApprovalService {
                 name: true,
               },
             },
+
+            attachments: {
+              where: {
+                publicId: { not: null },
+                resourceType: "raw",
+                fileUrl: {
+                  contains: "/raw/authenticated/",
+                },
+              },
+              take: 1,
+              select: {
+                id: true,
+              },
+            },
           },
         },
       },
+    });
+
+    return approvals.map(({ deliverable, ...approval }) => {
+      const { attachments, ...safeDeliverable } = deliverable;
+
+      const isVisible = [
+        "PENDING_CLIENT_APPROVAL",
+        "REVISION_REQUIRED",
+        "APPROVED",
+      ].includes(deliverable.status);
+
+      return {
+        ...approval,
+        deliverable: {
+          ...safeDeliverable,
+          fileUrl: null,
+          hasFile: isVisible && attachments.length > 0,
+        },
+      };
     });
   }
 

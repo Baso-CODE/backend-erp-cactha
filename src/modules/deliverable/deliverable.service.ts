@@ -82,6 +82,10 @@ export class DeliverableService {
       throw new ApiError("Versi deliverable maksimal 50 karakter.", 400);
     }
 
+    if (input.fileUrl !== undefined) {
+      throw new ApiError("Gunakan endpoint upload file deliverable.", 400);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const deliverable = await tx.deliverable.create({
         data: {
@@ -115,7 +119,8 @@ export class DeliverableService {
 
   async getAll(projectId: string, actorId: string) {
     await this.getAccessibleProject(projectId, actorId, "project.read");
-    return this.prisma.deliverable.findMany({
+
+    const deliverables = await this.prisma.deliverable.findMany({
       where: { projectId },
       orderBy: { createdAt: "desc" },
       include: {
@@ -129,8 +134,30 @@ export class DeliverableService {
             feedback: true,
           },
         },
+
+        attachments: {
+          where: {
+            publicId: { not: null },
+            resourceType: "raw",
+            fileUrl: {
+              contains: "/raw/authenticated/",
+            },
+          },
+          take: 1,
+          select: {
+            id: true,
+          },
+        },
       },
     });
+
+    return deliverables.map(
+      ({ attachments, fileUrl: _legacyFileUrl, ...item }) => ({
+        ...item,
+        fileUrl: null,
+        hasFile: attachments.length > 0,
+      }),
+    );
   }
 
   async submitForApproval(deliverableId: string, actorId: string) {
@@ -164,12 +191,6 @@ export class DeliverableService {
         where: { id: deliverableId },
       });
 
-      if (!current?.fileUrl?.trim()) {
-        throw new ApiError(
-          "File deliverable wajib tersedia sebelum dikirim ke client.",
-          400,
-        );
-      }
       if (!current || current.projectId !== project.id) {
         throw new ApiError("Deliverable tidak ditemukan.", 404);
       }
@@ -178,6 +199,25 @@ export class DeliverableService {
         throw new ApiError(
           "Deliverable harus berstatus READY_FOR_CLIENT sebelum dikirim.",
           409,
+        );
+      }
+
+      const attachment = await tx.attachment.findFirst({
+        where: {
+          deliverableId,
+          publicId: { not: null },
+          resourceType: "raw",
+          fileUrl: {
+            contains: "/raw/authenticated/",
+          },
+        },
+        select: { id: true },
+      });
+
+      if (!attachment) {
+        throw new ApiError(
+          "File authenticated belum tersedia untuk approval.",
+          400,
         );
       }
 
@@ -312,9 +352,21 @@ export class DeliverableService {
 
     await this.getAccessibleProject(deliverable.projectId, actorId);
 
-    if (!deliverable.fileUrl?.trim()) {
+    const attachment = await this.prisma.attachment.findFirst({
+      where: {
+        deliverableId,
+        publicId: { not: null },
+        resourceType: "raw",
+        fileUrl: {
+          contains: "/raw/authenticated/",
+        },
+      },
+      select: { id: true },
+    });
+
+    if (!attachment) {
       throw new ApiError(
-        "File deliverable wajib tersedia sebelum dinyatakan siap.",
+        "Upload file deliverable terlebih dahulu sebelum Mark Ready.",
         400,
       );
     }
@@ -472,21 +524,8 @@ export class DeliverableService {
     }
 
     if (input.fileUrl !== undefined) {
-      const fileUrl = input.fileUrl?.trim() || null;
-
-      if (
-        fileUrl &&
-        (!fileUrl.startsWith("https://") || fileUrl.length > 2048)
-      ) {
-        throw new ApiError(
-          "URL file harus HTTPS dan maksimal 2048 karakter.",
-          400,
-        );
-      }
-
-      data.fileUrl = fileUrl;
+      throw new ApiError("Gunakan endpoint upload file deliverable.", 400);
     }
-
     if (Object.keys(data).length === 0) {
       throw new ApiError("Tidak ada perubahan deliverable.", 400);
     }

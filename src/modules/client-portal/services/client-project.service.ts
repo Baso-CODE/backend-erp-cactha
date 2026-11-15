@@ -103,11 +103,18 @@ export class ClientProjectService {
         actorId,
       );
 
+    const visibleStatuses = [
+      "PENDING_CLIENT_APPROVAL",
+      "REVISION_REQUIRED",
+      "APPROVED",
+    ] as const;
+
     const project = await this.prisma.project.findFirst({
       where: {
         id: projectId,
         clientId: context.clientId,
       },
+
       select: {
         id: true,
         projectCode: true,
@@ -132,6 +139,7 @@ export class ClientProjectService {
             id: true,
             startDate: true,
             endDate: true,
+
             masterService: {
               select: {
                 id: true,
@@ -144,16 +152,39 @@ export class ClientProjectService {
         },
 
         deliverables: {
+          where: {
+            status: {
+              in: [...visibleStatuses],
+            },
+          },
+
           select: {
             id: true,
             name: true,
             version: true,
             description: true,
-            fileUrl: true,
             status: true,
+            dueDate: true,
+            submittedAt: true,
+            approvedAt: true,
             createdAt: true,
             updatedAt: true,
+
+            attachments: {
+              where: {
+                publicId: { not: null },
+                resourceType: "raw",
+                fileUrl: {
+                  contains: "/raw/authenticated/",
+                },
+              },
+              take: 1,
+              select: {
+                id: true,
+              },
+            },
           },
+
           orderBy: {
             createdAt: "desc",
           },
@@ -163,7 +194,14 @@ export class ClientProjectService {
           select: {
             services: true,
             tasks: true,
-            deliverables: true,
+
+            deliverables: {
+              where: {
+                status: {
+                  in: [...visibleStatuses],
+                },
+              },
+            },
           },
         },
       },
@@ -173,6 +211,16 @@ export class ClientProjectService {
       throw new ApiError("Project tidak ditemukan.", 404);
     }
 
-    return project;
+    return {
+      ...project,
+
+      deliverables: project.deliverables.map(
+        ({ attachments, ...deliverable }) => ({
+          ...deliverable,
+          fileUrl: null,
+          hasFile: attachments.length > 0,
+        }),
+      ),
+    };
   }
 }

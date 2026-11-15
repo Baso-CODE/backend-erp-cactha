@@ -5,6 +5,7 @@ import { authenticateToken } from "../../middleware/auth.middleware";
 import { validateBody } from "../../middleware/validateBody.middleware";
 import { validateQuery } from "../../middleware/validateQuery.middleware";
 
+import { DeliverableFileController } from "../deliverable/deliverable-file.controller";
 import { ClientApprovalController } from "./controller/client-approval.controller";
 import { ClientContextController } from "./controller/client-context.controller";
 import { ClientDashboardController } from "./controller/client-dashboard.controller";
@@ -41,6 +42,7 @@ export class ClientPortalRouter {
     private readonly clientInvoiceController: ClientInvoiceController,
     private readonly clientPerformanceController: ClientPerformanceController,
     private readonly clientNotificationController: ClientNotificationController,
+    private readonly deliverableFileController: DeliverableFileController,
   ) {
     this.initializeRoutes();
   }
@@ -56,6 +58,17 @@ export class ClientPortalRouter {
       "/context",
       authenticateToken,
       this.clientContextController.getContext,
+    );
+
+    this.router.get(
+      "/deliverables/:id/file",
+      authenticateToken,
+      this.deliverableFileController.clientDownload,
+    );
+    this.router.get(
+      "/documents/:id/download",
+      authenticateToken,
+      this.clientDocumentController.getDownloadUrl,
     );
 
     this.router.get(

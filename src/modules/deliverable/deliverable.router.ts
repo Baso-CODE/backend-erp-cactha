@@ -4,13 +4,18 @@ import { injectable } from "tsyringe";
 import { authenticateToken } from "../../middleware/auth.middleware";
 import { requirePermissions } from "../../middleware/permission.middleware";
 
+import { deliverableUpload } from "../../common/deliverable-upload.middleware";
+import { DeliverableFileController } from "./deliverable-file.controller";
 import { DeliverableController } from "./deliverable.controller";
 
 @injectable()
 export class DeliverableRouter {
   private readonly router: Router = Router();
 
-  constructor(private readonly controller: DeliverableController) {
+  constructor(
+    private readonly controller: DeliverableController,
+    private readonly fileController: DeliverableFileController,
+  ) {
     this.router.use(authenticateToken);
 
     this.router.get(
@@ -23,6 +28,19 @@ export class DeliverableRouter {
       "/",
       requirePermissions("project.update"),
       this.controller.create,
+    );
+
+    this.router.post(
+      "/:id/file",
+      requirePermissions("project.update"),
+      deliverableUpload.single("file"),
+      this.fileController.upload,
+    );
+
+    this.router.get(
+      "/:id/file",
+      requirePermissions("project.read"),
+      this.fileController.internalDownload,
     );
     this.router.patch(
       "/:id",
