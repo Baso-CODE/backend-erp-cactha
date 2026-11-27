@@ -15,6 +15,28 @@ export class MasterServiceService {
     private readonly accessScopeService: AccessScopeService,
   ) {}
 
+  private async validateCategory(categoryId?: string | null): Promise<void> {
+    if (!categoryId) return;
+
+    const category = await this.prisma.serviceCategory.findUnique({
+      where: {
+        id: categoryId,
+      },
+      select: {
+        id: true,
+        isActive: true,
+      },
+    });
+
+    if (!category) {
+      throw new ApiError("Service category tidak ditemukan.", 404);
+    }
+
+    if (!category.isActive) {
+      throw new ApiError("Service category sedang tidak aktif.", 400);
+    }
+  }
+
   private async ensureGlobalPermission(
     actorId: string,
     permission: string,
@@ -102,6 +124,10 @@ export class MasterServiceService {
       where.isActive = query.isActive;
     }
 
+    if (query.categoryId) {
+      where.categoryId = query.categoryId;
+    }
+
     const [data, total] = await this.prisma.$transaction([
       this.prisma.masterService.findMany({
         where,
@@ -111,6 +137,14 @@ export class MasterServiceService {
           createdAt: "desc",
         },
         include: {
+          category: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              isActive: true,
+            },
+          },
           defaultTemplate: {
             select: {
               id: true,
@@ -147,6 +181,14 @@ export class MasterServiceService {
     const masterService = await this.prisma.masterService.findUnique({
       where: { id },
       include: {
+        category: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            isActive: true,
+          },
+        },
         defaultTemplate: true,
         _count: {
           select: {
@@ -170,6 +212,7 @@ export class MasterServiceService {
 
     await this.validateUniqueCode(code);
     await this.validateWorkflowTemplate(data.workflowTemplateId);
+    await this.validateCategory(data.categoryId);
 
     return this.prisma.$transaction(async (tx) => {
       const masterService = await tx.masterService.create({
@@ -179,8 +222,17 @@ export class MasterServiceService {
           description: data.description?.trim() || null,
           isActive: data.isActive ?? true,
           workflowTemplateId: data.workflowTemplateId,
+          categoryId: data.categoryId ?? null,
         },
         include: {
+          category: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              isActive: true,
+            },
+          },
           defaultTemplate: true,
         },
       });
@@ -227,6 +279,13 @@ export class MasterServiceService {
       await this.validateWorkflowTemplate(data.workflowTemplateId);
     }
 
+    if (
+      data.categoryId !== undefined &&
+      data.categoryId !== existing.categoryId
+    ) {
+      await this.validateCategory(data.categoryId);
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const masterService = await tx.masterService.update({
         where: { id },
@@ -234,6 +293,9 @@ export class MasterServiceService {
           ...(code !== undefined && { code }),
           ...(data.name !== undefined && {
             name: data.name.trim(),
+          }),
+          ...(data.categoryId !== undefined && {
+            categoryId: data.categoryId,
           }),
           ...(data.description !== undefined && {
             description: data.description.trim() || null,
@@ -246,6 +308,14 @@ export class MasterServiceService {
           }),
         },
         include: {
+          category: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              isActive: true,
+            },
+          },
           defaultTemplate: true,
         },
       });
@@ -278,6 +348,8 @@ export class MasterServiceService {
         _count: {
           select: {
             projectServices: true,
+            quotationItems: true,
+            contractItems: true,
           },
         },
       },
@@ -294,6 +366,19 @@ export class MasterServiceService {
       );
     }
 
+    if (existing._count.quotationItems > 0) {
+      throw new ApiError(
+        "Master service tidak dapat dihapus karena sudah digunakan pada quotation. Silakan nonaktifkan service.",
+        409,
+      );
+    }
+
+    if (existing._count.contractItems > 0) {
+      throw new ApiError(
+        "Master service tidak dapat dihapus karena sudah digunakan pada contract. Silakan nonaktifkan service.",
+        409,
+      );
+    }
     await this.prisma.$transaction(async (tx) => {
       await tx.masterService.delete({
         where: { id },

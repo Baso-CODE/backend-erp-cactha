@@ -17,7 +17,7 @@ export class MasterServiceController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const actorId = (req as any).user.userId;
+      const actorId = (req as any).user.id;
       const query = (req as any).validatedQuery as QueryMasterServiceDTO;
 
       const result = await this.masterServiceService.getMasterServices(
@@ -41,7 +41,7 @@ export class MasterServiceController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const actorId = (req as any).user.userId;
+      const actorId = (req as any).user.id;
       const id = getStringParam(req.params.id);
 
       const data = await this.masterServiceService.getMasterServiceById(
@@ -65,7 +65,7 @@ export class MasterServiceController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const actorId = (req as any).user.userId;
+      const actorId = (req as any).user.id;
       const payload = req.body as CreateMasterServiceDTO;
 
       const data = await this.masterServiceService.createMasterService(
@@ -89,7 +89,7 @@ export class MasterServiceController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const actorId = (req as any).user.userId;
+      const actorId = (req as any).user.id;
       const id = getStringParam(req.params.id);
       const payload = req.body as UpdateMasterServiceDTO;
 
@@ -115,7 +115,7 @@ export class MasterServiceController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const actorId = (req as any).user.userId;
+      const actorId = (req as any).user.id;
       const id = getStringParam(req.params.id);
 
       const result = await this.masterServiceService.deleteMasterService(

@@ -36,4 +36,28 @@ export class ClientServiceController {
       next(error);
     }
   };
+
+  getServiceCategories = async (
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ): Promise<void> => {
+    try {
+      const actorId = (req as any).user?.id;
+
+      if (!actorId) {
+        throw new ApiError("User tidak terautentikasi.", 401);
+      }
+
+      const data =
+        await this.clientServiceService.getServiceCategories(actorId);
+
+      res.status(200).json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
 }

@@ -28,6 +28,20 @@ export class QuotationRouter {
     );
 
     this.router.get(
+      "/service-options/leads/:leadId",
+      authenticateToken,
+      requirePermissions("crm.quotation.create"),
+      this.quotationController.getCreateServiceOptions,
+    );
+
+    this.router.get(
+      "/:id/service-options",
+      authenticateToken,
+      requirePermissions("crm.quotation.update"),
+      this.quotationController.getEditServiceOptions,
+    );
+
+    this.router.get(
       "/:id",
       authenticateToken,
       requirePermissions("crm.quotation.read"),

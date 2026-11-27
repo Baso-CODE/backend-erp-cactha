@@ -36,4 +36,10 @@ export class UpdateMasterServiceDTO {
   })
   @IsOptional()
   workflowTemplateId?: string | null;
+
+  @IsOptional()
+  @IsUUID("4", {
+    message: "Service Category ID tidak valid.",
+  })
+  categoryId?: string | null;
 }

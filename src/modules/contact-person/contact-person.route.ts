@@ -32,7 +32,7 @@ export class ContactPersonRouter {
     );
 
     this.router.get(
-      "/contact-persons/portal-users/options",
+      "/portal-users/options",
       authenticateToken,
       requirePermissions("client.contact.update"),
       this.clientPortalUserController.getOptions,

@@ -4,6 +4,7 @@ import { injectable } from "tsyringe";
 import { AccessScopeService } from "../../helpers/access-scope.service";
 import { ApiError } from "../../utils/api-error";
 import { PrismaService } from "../prisma/prisma.service";
+import { ImportContractServicesDTO } from "../project/dto/import-contract-services.dto";
 import { CreateProjectServiceDTO } from "./dto/create-project-service.dto";
 import { QueryProjectServiceDTO } from "./dto/query-project-service.dto";
 import { UpdateProjectServiceDTO } from "./dto/update-project-service.dto";
@@ -47,10 +48,11 @@ export class ProjectServiceService {
     projectId: string,
     actorId: string,
     permission: string,
+    db: Prisma.TransactionClient = this.prisma,
   ) {
     const accessWhere = await this.getProjectAccessWhere(actorId, permission);
 
-    const project = await this.prisma.project.findFirst({
+    const project = await db.project.findFirst({
       where: {
         id: projectId,
         ...accessWhere,
@@ -60,7 +62,9 @@ export class ProjectServiceService {
         projectCode: true,
         name: true,
         clientId: true,
+        contractId: true,
         projectManagerId: true,
+        status: true,
       },
     });
 
@@ -98,6 +102,16 @@ export class ProjectServiceService {
         masterService: {
           include: {
             defaultTemplate: true,
+
+            category: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                isActive: true,
+                sortOrder: true,
+              },
+            },
           },
         },
         workflowInstance: true,
@@ -114,8 +128,11 @@ export class ProjectServiceService {
     return projectService;
   }
 
-  private async validateMasterService(masterServiceId: string) {
-    const masterService = await this.prisma.masterService.findUnique({
+  private async validateMasterService(
+    masterServiceId: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    const masterService = await db.masterService.findUnique({
       where: {
         id: masterServiceId,
       },
@@ -129,7 +146,10 @@ export class ProjectServiceService {
     }
 
     if (!masterService.isActive) {
-      throw new ApiError("Master service tidak aktif.", 400);
+      throw new ApiError(
+        `Master service "${masterService.name}" tidak aktif.`,
+        400,
+      );
     }
 
     return masterService;
@@ -223,6 +243,17 @@ export class ProjectServiceService {
               name: true,
               description: true,
               isActive: true,
+              categoryId: true,
+
+              category: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  isActive: true,
+                  sortOrder: true,
+                },
+              },
             },
           },
           workflowInstance: {
@@ -267,91 +298,17 @@ export class ProjectServiceService {
       "project.service.create",
     );
 
-    const masterService = await this.validateMasterService(
-      data.masterServiceId,
-    );
-
-    this.validateDates(data.startDate, data.endDate);
-
-    const existing = await this.prisma.projectService.findUnique({
-      where: {
-        projectId_masterServiceId: {
-          projectId: data.projectId,
-          masterServiceId: data.masterServiceId,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (existing) {
-      throw new ApiError("Service ini sudah ditambahkan ke project.", 409);
-    }
-
     return this.prisma.$transaction(async (tx) => {
-      const projectService = await tx.projectService.create({
-        data: {
-          projectId: data.projectId,
-          masterServiceId: data.masterServiceId,
-          startDate: data.startDate ?? null,
-          endDate: data.endDate ?? null,
-        },
-        include: {
-          project: {
-            select: {
-              id: true,
-              projectCode: true,
-              name: true,
-            },
-          },
-          masterService: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-            },
-          },
-        },
-      });
+      await this.lockProject(tx, data.projectId);
 
-      let workflowInstance = null;
+      await this.getAccessibleProject(
+        data.projectId,
+        actorId,
+        "project.service.create",
+        tx,
+      );
 
-      if (masterService.defaultTemplate) {
-        const steps = this.normalizeWorkflowSteps(
-          masterService.defaultTemplate.steps,
-        );
-
-        workflowInstance = await tx.workflowInstance.create({
-          data: {
-            workflowTemplateId: masterService.defaultTemplate.id,
-            projectServiceId: projectService.id,
-            status: "RUNNING",
-            currentStepKey: steps[0].key,
-            stepsSnapshot: steps as Prisma.InputJsonValue,
-          },
-        });
-      }
-
-      await tx.auditLog.create({
-        data: {
-          userId: actorId,
-          action: "CREATE",
-          entity: "ProjectService",
-          entityId: projectService.id,
-          details: {
-            after: {
-              projectService,
-              workflowInstance,
-            },
-          },
-        },
-      });
-
-      return {
-        ...projectService,
-        workflowInstance,
-      };
+      return this.createServiceInTransaction(tx, data, actorId);
     });
   }
 
@@ -398,6 +355,19 @@ export class ProjectServiceService {
               id: true,
               code: true,
               name: true,
+              description: true,
+              isActive: true,
+              categoryId: true,
+
+              category: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  isActive: true,
+                  sortOrder: true,
+                },
+              },
             },
           },
           workflowInstance: {
@@ -466,6 +436,446 @@ export class ProjectServiceService {
 
     return {
       message: "Project service berhasil dihapus.",
+    };
+  }
+
+  async getAvailableMasterServices(projectId: string, actorId: string) {
+    await this.getAccessibleProject(
+      projectId,
+      actorId,
+      "project.service.create",
+    );
+
+    return this.prisma.masterService.findMany({
+      where: {
+        isActive: true,
+
+        projectServices: {
+          none: {
+            projectId,
+          },
+        },
+      },
+
+      select: {
+        id: true,
+        code: true,
+        name: true,
+
+        category: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            isActive: true,
+            sortOrder: true,
+          },
+        },
+
+        defaultTemplate: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+          },
+        },
+      },
+
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+    });
+  }
+
+  async getContractHandoff(
+    projectId: string,
+    contractId: string,
+    actorId: string,
+  ) {
+    const project = await this.getAccessibleProject(
+      projectId,
+      actorId,
+      "project.service.create",
+    );
+
+    return this.buildContractHandoff(this.prisma, project, contractId);
+  }
+
+  async importContractServices(
+    projectId: string,
+    contractId: string,
+    input: ImportContractServicesDTO,
+    actorId: string,
+  ) {
+    await this.getAccessibleProject(
+      projectId,
+      actorId,
+      "project.service.create",
+    );
+
+    return this.prisma.$transaction(
+      async (tx) => {
+        // Mencegah import dan penambahan manual bersamaan.
+        await this.lockProject(tx, projectId);
+
+        const project = await this.getAccessibleProject(
+          projectId,
+          actorId,
+          "project.service.create",
+          tx,
+        );
+
+        if (project.contractId !== contractId) {
+          throw new ApiError("Contract sumber project sudah berubah.", 409);
+        }
+
+        // Pertahankan status contract selama proses import.
+        await tx.$queryRaw`
+        SELECT "id"
+        FROM "Contract"
+        WHERE "id" = ${contractId}
+        FOR SHARE
+      `;
+
+        const handoff = await this.buildContractHandoff(
+          tx,
+          project,
+          contractId,
+        );
+
+        if (!handoff.canImport) {
+          throw new ApiError(
+            "Import membutuhkan contract Active dan project yang belum Completed atau Cancelled.",
+            409,
+          );
+        }
+
+        const itemMap = new Map(
+          handoff.items.map((item) => [item.masterServiceId, item]),
+        );
+
+        const requestedIds = [...new Set(input.masterServiceIds)];
+
+        const selectedItems = requestedIds.map((masterServiceId) => {
+          const item = itemMap.get(masterServiceId);
+
+          if (!item) {
+            throw new ApiError(
+              "Terdapat layanan yang tidak tercantum dalam contract ini.",
+              400,
+            );
+          }
+
+          if (item.availability === "INACTIVE") {
+            throw new ApiError(
+              `Service "${item.serviceNameSnapshot}" sudah tidak aktif.`,
+              409,
+            );
+          }
+
+          return item;
+        });
+
+        const alreadyAdded = selectedItems.filter(
+          (item) => item.availability === "ALREADY_ADDED",
+        ).length;
+
+        const availableItems = selectedItems.filter(
+          (item) => item.availability === "AVAILABLE",
+        );
+
+        const createdIds: string[] = [];
+        let workflowCreated = 0;
+
+        for (const item of availableItems) {
+          const result = await this.createServiceInTransaction(
+            tx,
+            {
+              projectId,
+              masterServiceId: item.masterServiceId,
+            },
+            actorId,
+            contractId,
+          );
+
+          createdIds.push(result.id);
+
+          if (result.workflowInstance) {
+            workflowCreated++;
+          }
+        }
+
+        return {
+          projectId,
+          contractId,
+
+          requestedCount: requestedIds.length,
+          createdCount: createdIds.length,
+          skippedCount: alreadyAdded,
+          workflowCreated,
+          createdIds,
+        };
+      },
+      {
+        timeout: 30000,
+      },
+    );
+  }
+
+  private async lockProject(tx: Prisma.TransactionClient, projectId: string) {
+    await tx.$queryRaw`
+    SELECT "id"
+    FROM "Project"
+    WHERE "id" = ${projectId}
+    FOR UPDATE
+  `;
+  }
+
+  private async createServiceInTransaction(
+    tx: Prisma.TransactionClient,
+    data: CreateProjectServiceDTO,
+    actorId: string,
+    sourceContractId?: string,
+  ) {
+    const masterService = await this.validateMasterService(
+      data.masterServiceId,
+      tx,
+    );
+
+    this.validateDates(data.startDate, data.endDate);
+
+    const existing = await tx.projectService.findUnique({
+      where: {
+        projectId_masterServiceId: {
+          projectId: data.projectId,
+          masterServiceId: data.masterServiceId,
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existing) {
+      throw new ApiError("Service ini sudah ditambahkan ke project.", 409);
+    }
+
+    const projectService = await tx.projectService.create({
+      data: {
+        projectId: data.projectId,
+        masterServiceId: data.masterServiceId,
+        startDate: data.startDate ?? null,
+        endDate: data.endDate ?? null,
+      },
+
+      include: {
+        project: {
+          select: {
+            id: true,
+            projectCode: true,
+            name: true,
+          },
+        },
+
+        masterService: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            description: true,
+            isActive: true,
+            categoryId: true,
+
+            category: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                isActive: true,
+                sortOrder: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    let workflowInstance = null;
+
+    if (masterService.defaultTemplate) {
+      const steps = this.normalizeWorkflowSteps(
+        masterService.defaultTemplate.steps,
+      );
+
+      workflowInstance = await tx.workflowInstance.create({
+        data: {
+          workflowTemplateId: masterService.defaultTemplate.id,
+
+          projectServiceId: projectService.id,
+          status: "RUNNING",
+          currentStepKey: steps[0].key,
+          stepsSnapshot: steps as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    await tx.auditLog.create({
+      data: {
+        userId: actorId,
+        action: "CREATE",
+        entity: "ProjectService",
+        entityId: projectService.id,
+
+        details: {
+          source: sourceContractId ? "CONTRACT_HANDOFF" : "MANUAL",
+
+          sourceContractId: sourceContractId ?? null,
+
+          after: {
+            projectService,
+            workflowInstance,
+          },
+        },
+      },
+    });
+
+    return {
+      ...projectService,
+      workflowInstance,
+    };
+  }
+
+  private async buildContractHandoff(
+    db: Prisma.TransactionClient,
+    project: {
+      id: string;
+      clientId: string;
+      contractId: string | null;
+      status: string;
+    },
+    expectedContractId: string,
+  ) {
+    if (!project.contractId || project.contractId !== expectedContractId) {
+      throw new ApiError(
+        "Contract sumber project sudah berubah atau tidak tersedia.",
+        409,
+      );
+    }
+
+    const contract = await db.contract.findFirst({
+      where: {
+        id: expectedContractId,
+        clientId: project.clientId,
+      },
+
+      select: {
+        id: true,
+        contractNo: true,
+        title: true,
+        status: true,
+
+        serviceItems: {
+          orderBy: [
+            { categorySortOrderSnapshot: "asc" },
+            { serviceNameSnapshot: "asc" },
+            { id: "asc" },
+          ],
+
+          select: {
+            id: true,
+            masterServiceId: true,
+
+            serviceCodeSnapshot: true,
+            serviceNameSnapshot: true,
+            serviceDescriptionSnapshot: true,
+
+            categoryIdSnapshot: true,
+            categoryCodeSnapshot: true,
+            categoryNameSnapshot: true,
+            categorySortOrderSnapshot: true,
+
+            masterService: {
+              select: {
+                id: true,
+                name: true,
+                isActive: true,
+
+                defaultTemplate: {
+                  select: {
+                    id: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!contract) {
+      throw new ApiError(
+        "Contract tidak ditemukan atau bukan milik client project ini.",
+        404,
+      );
+    }
+
+    const existingServices = await db.projectService.findMany({
+      where: {
+        projectId: project.id,
+      },
+      select: {
+        masterServiceId: true,
+      },
+    });
+
+    const existingIds = new Set(
+      existingServices.map((item) => item.masterServiceId),
+    );
+
+    const canImport =
+      contract.status === "ACTIVE" &&
+      !["COMPLETED", "CANCELLED"].includes(project.status);
+
+    const items = contract.serviceItems.map(
+      ({ masterService, ...snapshot }) => ({
+        ...snapshot,
+
+        currentServiceName: masterService.name,
+
+        workflowTemplate: masterService.defaultTemplate,
+
+        availability: existingIds.has(snapshot.masterServiceId)
+          ? ("ALREADY_ADDED" as const)
+          : !masterService.isActive
+            ? ("INACTIVE" as const)
+            : ("AVAILABLE" as const),
+      }),
+    );
+
+    return {
+      contract: {
+        id: contract.id,
+        contractNo: contract.contractNo,
+        title: contract.title,
+        status: contract.status,
+      },
+
+      canImport,
+
+      items,
+
+      summary: {
+        total: items.length,
+
+        available: items.filter((item) => item.availability === "AVAILABLE")
+          .length,
+
+        alreadyAdded: items.filter(
+          (item) => item.availability === "ALREADY_ADDED",
+        ).length,
+
+        inactive: items.filter((item) => item.availability === "INACTIVE")
+          .length,
+      },
     };
   }
 }

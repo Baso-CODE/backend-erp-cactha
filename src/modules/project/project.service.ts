@@ -395,12 +395,17 @@ export class ProjectService {
     );
 
     const targetClientId = data.clientId ?? existing.clientId;
+
     const targetContractId =
       data.contractId === undefined ? existing.contractId : data.contractId;
+
     const targetProjectManagerId =
       data.projectManagerId ?? existing.projectManagerId;
+
     const targetStartDate = data.startDate ?? existing.startDate;
+
     const targetEndDate = data.targetEndDate ?? existing.targetEndDate;
+
     const targetActualEndDate =
       data.actualEndDate === undefined
         ? existing.actualEndDate
@@ -416,47 +421,112 @@ export class ProjectService {
       data.projectManagerId !== undefined &&
       data.projectManagerId !== existing.projectManagerId
     ) {
-      await this.validateAssignPermission(actorId, data.projectManagerId);
-      await this.validateProjectManager(data.projectManagerId);
+      await this.validateAssignPermission(actorId, targetProjectManagerId);
+
+      await this.validateProjectManager(targetProjectManagerId);
     }
 
     this.validateDates(targetStartDate, targetEndDate, targetActualEndDate);
 
     return this.prisma.$transaction(async (tx) => {
+      // ==========================================
+      // LOCK PROJECT
+      // ==========================================
+      await tx.$queryRaw`
+      SELECT "id"
+      FROM "Project"
+      WHERE "id" = ${id}
+      FOR UPDATE
+    `;
+
+      const current = await tx.project.findUnique({
+        where: { id },
+        select: {
+          clientId: true,
+          contractId: true,
+          updatedAt: true,
+          _count: {
+            select: {
+              services: true,
+            },
+          },
+        },
+      });
+
+      if (
+        !current ||
+        current.updatedAt.getTime() !== existing.updatedAt.getTime()
+      ) {
+        throw new ApiError(
+          "Project sudah berubah. Muat ulang data terlebih dahulu.",
+          409,
+        );
+      }
+
+      // ==========================================
+      // PROTECT CLIENT & CONTRACT SOURCE
+      // ==========================================
+      const clientChanged =
+        data.clientId !== undefined && data.clientId !== current.clientId;
+
+      const contractChanged =
+        data.contractId !== undefined && data.contractId !== current.contractId;
+
+      if (current._count.services > 0 && (clientChanged || contractChanged)) {
+        throw new ApiError(
+          "Client atau Contract tidak dapat diubah karena project sudah memiliki service.",
+          409,
+        );
+      }
+
+      // ==========================================
+      // UPDATE PROJECT
+      // ==========================================
       const project = await tx.project.update({
         where: { id },
+
         data: {
           ...(data.name !== undefined && {
             name: data.name.trim(),
           }),
+
           ...(data.projectType !== undefined && {
             projectType: data.projectType.trim(),
           }),
+
           ...(data.description !== undefined && {
             description: data.description.trim() || null,
           }),
+
           ...(data.clientId !== undefined && {
             clientId: data.clientId,
           }),
+
           ...(data.contractId !== undefined && {
             contractId: data.contractId,
           }),
+
           ...(data.projectManagerId !== undefined && {
             projectManagerId: data.projectManagerId,
           }),
+
           ...(data.startDate !== undefined && {
             startDate: data.startDate,
           }),
+
           ...(data.targetEndDate !== undefined && {
             targetEndDate: data.targetEndDate,
           }),
+
           ...(data.actualEndDate !== undefined && {
             actualEndDate: data.actualEndDate,
           }),
+
           ...(data.status !== undefined && {
             status: data.status,
           }),
         },
+
         include: {
           client: {
             select: {
@@ -465,6 +535,7 @@ export class ProjectService {
               companyName: true,
             },
           },
+
           contract: {
             select: {
               id: true,
@@ -472,6 +543,7 @@ export class ProjectService {
               title: true,
             },
           },
+
           projectManager: {
             select: {
               id: true,
@@ -479,9 +551,21 @@ export class ProjectService {
               email: true,
             },
           },
+
+          _count: {
+            select: {
+              services: true,
+              tasks: true,
+              deliverables: true,
+              performanceMetrics: true,
+            },
+          },
         },
       });
 
+      // ==========================================
+      // AUDIT LOG
+      // ==========================================
       await tx.auditLog.create({
         data: {
           userId: actorId,
@@ -538,9 +622,29 @@ export class ProjectService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.project.delete({
-        where: { id },
+      await tx.$queryRaw`
+  SELECT "id"
+  FROM "Project"
+  WHERE "id" = ${id}
+  FOR UPDATE
+`;
+
+      const deleted = await tx.project.deleteMany({
+        where: {
+          id,
+          services: { none: {} },
+          tasks: { none: {} },
+          deliverables: { none: {} },
+          performanceMetrics: { none: {} },
+        },
       });
+
+      if (deleted.count !== 1) {
+        throw new ApiError(
+          "Project sudah berubah atau memiliki data terkait.",
+          409,
+        );
+      }
 
       await tx.auditLog.create({
         data: {

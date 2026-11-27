@@ -96,6 +96,12 @@ export class ClientPortalRouter {
     );
 
     this.router.get(
+      "/services/categories",
+      authenticateToken,
+      this.clientServiceController.getServiceCategories,
+    );
+
+    this.router.get(
       "/services",
       authenticateToken,
       validateQuery(QueryClientServiceDTO),

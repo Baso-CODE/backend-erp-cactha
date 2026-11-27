@@ -3,8 +3,11 @@ import { injectable } from "tsyringe";
 import { AccessScopeService } from "../../helpers/access-scope.service";
 import { ApiError } from "../../utils/api-error";
 import { PrismaService } from "../prisma/prisma.service";
+import {
+  CONTRACT_SERVICE_ITEMS_INCLUDE,
+  CONTRACT_SERVICE_SNAPSHOT_SELECT,
+} from "./contract-service-items.helper";
 import { CreateContractRenewalDTO } from "./dto/contract-renewal.dto";
-
 @injectable()
 export class ContractRenewalWorkflowService {
   constructor(
@@ -113,7 +116,12 @@ export class ContractRenewalWorkflowService {
         });
 
         const contractNo = `CTR-${String(counter.value).padStart(6, "0")}`;
-
+        const sourceServiceItems = await tx.contractServiceItem.findMany({
+          where: {
+            contractId: source.id,
+          },
+          select: CONTRACT_SERVICE_SNAPSHOT_SELECT,
+        });
         const renewal = await tx.contract.create({
           data: {
             contractNo,
@@ -130,8 +138,12 @@ export class ContractRenewalWorkflowService {
             termsConditions: source.termsConditions,
             renewalReminder: source.renewalReminder,
             status: ContractStatus.DRAFT,
+            serviceItems: {
+              create: sourceServiceItems,
+            },
           },
           include: {
+            serviceItems: CONTRACT_SERVICE_ITEMS_INCLUDE,
             client: {
               select: {
                 id: true,
