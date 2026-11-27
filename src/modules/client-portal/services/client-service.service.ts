@@ -12,6 +12,52 @@ export class ClientServiceService {
     private readonly clientPortalAccessService: ClientPortalAccessService,
   ) {}
 
+  async getServiceCategories(actorId: string) {
+    const context =
+      await this.clientPortalAccessService.getClientContext(actorId);
+
+    const projectServiceWhere: Prisma.ProjectServiceWhereInput = {
+      project: {
+        clientId: context.clientId,
+      },
+    };
+
+    const [categories, uncategorizedCount] = await this.prisma.$transaction([
+      this.prisma.serviceCategory.findMany({
+        where: {
+          masterServices: {
+            some: {
+              projectServices: {
+                some: projectServiceWhere,
+              },
+            },
+          },
+        },
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          sortOrder: true,
+        },
+      }),
+
+      this.prisma.projectService.count({
+        where: {
+          ...projectServiceWhere,
+          masterService: {
+            categoryId: null,
+          },
+        },
+      }),
+    ]);
+
+    return {
+      categories,
+      hasUncategorized: uncategorizedCount > 0,
+    };
+  }
+
   async getServices(query: QueryClientServiceDTO, actorId: string) {
     const context =
       await this.clientPortalAccessService.getClientContext(actorId);
@@ -27,43 +73,71 @@ export class ClientServiceService {
     const limit = query.limit ?? 10;
     const skip = (page - 1) * limit;
 
+    const keyword = query.search?.trim();
+
     const where: Prisma.ProjectServiceWhereInput = {
       project: {
         clientId: context.clientId,
       },
+
       ...(query.projectId && {
         projectId: query.projectId,
       }),
+
       ...(query.status && {
         status: query.status,
       }),
-      ...(query.search && {
+
+      ...(query.categoryId && {
+        masterService: {
+          categoryId:
+            query.categoryId === "uncategorized" ? null : query.categoryId,
+        },
+      }),
+
+      ...(keyword && {
         OR: [
           {
             masterService: {
               name: {
-                contains: query.search,
+                contains: keyword,
+                mode: "insensitive",
               },
             },
           },
           {
             masterService: {
               code: {
-                contains: query.search,
+                contains: keyword,
+                mode: "insensitive",
+              },
+            },
+          },
+          {
+            masterService: {
+              category: {
+                is: {
+                  name: {
+                    contains: keyword,
+                    mode: "insensitive",
+                  },
+                },
               },
             },
           },
           {
             project: {
               name: {
-                contains: query.search,
+                contains: keyword,
+                mode: "insensitive",
               },
             },
           },
           {
             project: {
               projectCode: {
-                contains: query.search,
+                contains: keyword,
+                mode: "insensitive",
               },
             },
           },
@@ -76,9 +150,33 @@ export class ClientServiceService {
         where,
         skip,
         take: limit,
-        orderBy: {
-          updatedAt: "desc",
-        },
+
+        orderBy: [
+          {
+            masterService: {
+              category: {
+                sortOrder: "asc",
+              },
+            },
+          },
+          {
+            masterService: {
+              category: {
+                name: "asc",
+              },
+            },
+          },
+          {
+            masterService: {
+              category: {
+                id: "asc",
+              },
+            },
+          },
+          { updatedAt: "desc" },
+          { id: "desc" },
+        ],
+
         select: {
           id: true,
           status: true,
@@ -86,14 +184,27 @@ export class ClientServiceService {
           endDate: true,
           createdAt: true,
           updatedAt: true,
+
           masterService: {
             select: {
               id: true,
               code: true,
               name: true,
               description: true,
+
+              categoryId: true,
+
+              category: {
+                select: {
+                  id: true,
+                  code: true,
+                  name: true,
+                  sortOrder: true,
+                },
+              },
             },
           },
+
           project: {
             select: {
               id: true,
@@ -102,6 +213,7 @@ export class ClientServiceService {
               status: true,
             },
           },
+
           workflowInstance: {
             select: {
               id: true,

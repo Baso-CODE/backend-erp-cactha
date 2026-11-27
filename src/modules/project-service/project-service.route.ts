@@ -5,6 +5,7 @@ import { authenticateToken } from "../../middleware/auth.middleware";
 import { requirePermissions } from "../../middleware/permission.middleware";
 import { validateBody } from "../../middleware/validateBody.middleware";
 import { validateQuery } from "../../middleware/validateQuery.middleware";
+import { ImportContractServicesDTO } from "../project/dto/import-contract-services.dto";
 import { CreateProjectServiceDTO } from "./dto/create-project-service.dto";
 import { QueryProjectServiceDTO } from "./dto/query-project-service.dto";
 import { UpdateProjectServiceDTO } from "./dto/update-project-service.dto";
@@ -23,6 +24,24 @@ export class ProjectServiceRouter {
   private initializeRoutes = (): void => {
     this.router.use(authenticateToken);
 
+    this.router.get(
+      "/contract-handoff/:projectId/:contractId",
+      requirePermissions("project.service.create"),
+      this.projectServiceController.getContractHandoff,
+    );
+
+    this.router.post(
+      "/contract-handoff/:projectId/:contractId",
+      requirePermissions("project.service.create"),
+      validateBody(ImportContractServicesDTO),
+      this.projectServiceController.importContractServices,
+    );
+
+    this.router.get(
+      "/available/:projectId",
+      requirePermissions("project.service.create"),
+      this.projectServiceController.getAvailableMasterServices,
+    );
     this.router.get(
       "/",
       requirePermissions("project.service.read"),

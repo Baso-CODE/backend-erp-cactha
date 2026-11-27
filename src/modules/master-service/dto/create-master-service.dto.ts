@@ -32,4 +32,10 @@ export class CreateMasterServiceDTO {
   })
   @IsOptional()
   workflowTemplateId?: string;
+
+  @IsOptional()
+  @IsUUID("4", {
+    message: "Service Category ID tidak valid.",
+  })
+  categoryId?: string;
 }

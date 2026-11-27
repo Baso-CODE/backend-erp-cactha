@@ -2,11 +2,16 @@ import { Prisma } from "@prisma/client";
 import { injectable } from "tsyringe";
 
 import { AccessScopeService } from "../../helpers/access-scope.service";
+import { ApiError } from "../../utils/api-error";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateContractDTO } from "./dto/create-contract.dto";
 import { QueryContractDTO } from "./dto/query-contract.dto";
 import { UpdateContractDTO } from "./dto/update-contract.dto";
 
+import {
+  CONTRACT_SERVICE_ITEMS_INCLUDE,
+  CONTRACT_SERVICE_SNAPSHOT_SELECT,
+} from "./contract-service-items.helper";
 @injectable()
 export class ContractService {
   constructor(
@@ -47,8 +52,12 @@ export class ContractService {
     return client;
   }
 
-  private async validateQuotation(quotationId: string, clientId: string) {
-    const quotation = await this.prisma.quotation.findUnique({
+  private async validateQuotation(
+    quotationId: string,
+    clientId: string,
+    db: Prisma.TransactionClient = this.prisma,
+  ) {
+    const quotation = await db.quotation.findUnique({
       where: {
         id: quotationId,
       },
@@ -62,10 +71,10 @@ export class ContractService {
     });
 
     if (!quotation) {
-      throw new Error("Quotation tidak ditemukan.");
+      throw new ApiError("Quotation tidak ditemukan.", 404);
     }
 
-    const client = await this.prisma.client.findUnique({
+    const client = await db.client.findUnique({
       where: {
         id: clientId,
       },
@@ -76,16 +85,13 @@ export class ContractService {
     });
 
     if (!client) {
-      throw new Error("Client tidak ditemukan.");
+      throw new ApiError("Client tidak ditemukan.", 404);
     }
 
-    if (!client.sourceLeadId) {
-      throw new Error("Client ini tidak memiliki source lead.");
-    }
-
-    if (quotation.leadId !== client.sourceLeadId) {
-      throw new Error(
+    if (!client.sourceLeadId || quotation.leadId !== client.sourceLeadId) {
+      throw new ApiError(
         "Quotation tidak berasal dari lead yang membentuk client ini.",
+        400,
       );
     }
 
@@ -176,6 +182,7 @@ export class ContractService {
           createdAt: "desc",
         },
         include: {
+          serviceItems: CONTRACT_SERVICE_ITEMS_INCLUDE,
           client: {
             select: {
               id: true,
@@ -241,6 +248,7 @@ export class ContractService {
         }),
       },
       include: {
+        serviceItems: CONTRACT_SERVICE_ITEMS_INCLUDE,
         client: {
           select: {
             id: true,
@@ -293,12 +301,43 @@ export class ContractService {
   async createContract(data: CreateContractDTO, actorId: string) {
     await this.getAccessibleClient(data.clientId, actorId, "contract.create");
 
-    if (data.quotationId) {
-      await this.validateQuotation(data.quotationId, data.clientId);
-    }
     this.validateContractDates(data.startDate, data.endDate);
 
     return this.prisma.$transaction(async (tx) => {
+      let serviceItems: Prisma.QuotationServiceItemGetPayload<{
+        select: typeof CONTRACT_SERVICE_SNAPSHOT_SELECT;
+      }>[] = [];
+
+      if (data.quotationId) {
+        // Sinkron dengan row lock pada updateQuotation().
+        await tx.$queryRaw`
+        SELECT "id"
+        FROM "Quotation"
+        WHERE "id" = ${data.quotationId}
+        FOR UPDATE
+      `;
+
+        const quotation = await this.validateQuotation(
+          data.quotationId,
+          data.clientId,
+          tx,
+        );
+
+        if (quotation.status !== "APPROVED") {
+          throw new ApiError(
+            "Hanya quotation Approved yang dapat digunakan untuk membuat contract.",
+            409,
+          );
+        }
+
+        serviceItems = await tx.quotationServiceItem.findMany({
+          where: {
+            quotationId: quotation.id,
+          },
+          select: CONTRACT_SERVICE_SNAPSHOT_SELECT,
+        });
+      }
+
       const counter = await tx.counter.upsert({
         where: {
           key: "CONTRACT",
@@ -333,7 +372,12 @@ export class ContractService {
           documentUrl: data.documentUrl,
           status: data.status ?? "DRAFT",
           renewalReminder: data.renewalReminder ?? false,
+
+          serviceItems: {
+            create: serviceItems,
+          },
         },
+
         include: {
           client: {
             select: {
@@ -342,6 +386,7 @@ export class ContractService {
               companyName: true,
             },
           },
+
           quotation: {
             select: {
               id: true,
@@ -350,6 +395,8 @@ export class ContractService {
               status: true,
             },
           },
+
+          serviceItems: CONTRACT_SERVICE_ITEMS_INCLUDE,
         },
       });
 
@@ -367,6 +414,12 @@ export class ContractService {
             value: contract.value.toString(),
             currency: contract.currency,
             status: contract.status,
+
+            serviceItems: contract.serviceItems.map((item) => ({
+              masterServiceId: item.masterServiceId,
+              name: item.serviceNameSnapshot,
+              category: item.categoryNameSnapshot,
+            })),
           },
         },
       });
@@ -398,6 +451,23 @@ export class ContractService {
       );
     }
 
+    if (
+      data.quotationId !== undefined &&
+      data.quotationId !== existing.quotationId
+    ) {
+      throw new ApiError(
+        "Quotation sumber contract tidak dapat diubah setelah contract dibuat.",
+        409,
+      );
+    }
+
+    if (data.clientId !== undefined && data.clientId !== existing.clientId) {
+      throw new ApiError(
+        "Client contract tidak dapat dipindahkan setelah contract dibuat.",
+        409,
+      );
+    }
+
     if (data.clientId !== undefined && data.clientId !== existing.clientId) {
       await this.getAccessibleClient(data.clientId, actorId, "contract.update");
     }
@@ -423,12 +493,6 @@ export class ContractService {
         data: {
           ...(data.title !== undefined && {
             title: data.title,
-          }),
-          ...(data.clientId !== undefined && {
-            clientId: data.clientId,
-          }),
-          ...(data.quotationId !== undefined && {
-            quotationId: data.quotationId,
           }),
           ...(data.contractType !== undefined && {
             contractType: data.contractType,
@@ -465,6 +529,7 @@ export class ContractService {
           }),
         },
         include: {
+          serviceItems: CONTRACT_SERVICE_ITEMS_INCLUDE,
           client: {
             select: {
               id: true,

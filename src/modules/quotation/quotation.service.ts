@@ -3,6 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { injectable } from "tsyringe";
 import { AccessScopeService } from "../../helpers/access-scope.service";
+import { ApiError } from "../../utils/api-error";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateQuotationDTO } from "./dto/create-quotation.dto";
 import { QueryQuotationDTO } from "./dto/query-quotation.dto";
@@ -65,6 +66,13 @@ export class QuotationService {
           createdAt: "desc",
         },
         include: {
+          serviceItems: {
+            orderBy: [
+              { categorySortOrderSnapshot: "asc" },
+              { serviceNameSnapshot: "asc" },
+              { id: "asc" },
+            ],
+          },
           lead: {
             select: {
               id: true,
@@ -111,6 +119,13 @@ export class QuotationService {
         }),
       },
       include: {
+        serviceItems: {
+          orderBy: [
+            { categorySortOrderSnapshot: "asc" },
+            { serviceNameSnapshot: "asc" },
+            { id: "asc" },
+          ],
+        },
         lead: {
           select: {
             id: true,
@@ -131,6 +146,11 @@ export class QuotationService {
             startDate: true,
             endDate: true,
             value: true,
+          },
+        },
+        _count: {
+          select: {
+            contracts: true,
           },
         },
       },
@@ -169,8 +189,9 @@ export class QuotationService {
           quotationNo,
           version: "1.0",
           leadId: data.leadId,
-          amount: data.amount,
+          amount: new Prisma.Decimal(data.amount),
         },
+
         include: {
           lead: {
             select: {
@@ -183,6 +204,12 @@ export class QuotationService {
           },
         },
       });
+
+      const serviceItems = await this.syncServiceItems(
+        tx,
+        quotation.id,
+        data.masterServiceIds ?? [],
+      );
 
       await tx.auditLog.create({
         data: {
@@ -190,46 +217,113 @@ export class QuotationService {
           action: "CREATE",
           entity: "Quotation",
           entityId: quotation.id,
+
           details: {
             quotationNo: quotation.quotationNo,
             leadId: quotation.leadId,
-            amount: quotation.amount,
+            amount: quotation.amount.toString(),
             version: quotation.version,
             status: quotation.status,
+            masterServiceIds: serviceItems.map((item) => item.masterServiceId),
           },
         },
       });
 
-      return quotation;
+      return {
+        ...quotation,
+        serviceItems,
+      };
     });
   }
 
   async updateQuotation(id: string, data: UpdateQuotationDTO, actorId: string) {
-    const existing = await this.prisma.quotation.findUnique({
+    const accessible = await this.prisma.quotation.findUnique({
       where: { id },
+      select: { leadId: true },
     });
 
-    if (!existing) {
-      throw new Error("Quotation tidak ditemukan.");
+    if (!accessible) {
+      throw new ApiError("Quotation tidak ditemukan.", 404);
     }
 
     await this.validateLeadAccess(
-      existing.leadId,
+      accessible.leadId,
       actorId,
       "crm.quotation.update",
     );
 
     return this.prisma.$transaction(async (tx) => {
+      // PostgreSQL row lock untuk perubahan quotation bersamaan.
+      await tx.$queryRaw`
+      SELECT "id"
+      FROM "Quotation"
+      WHERE "id" = ${id}
+      FOR UPDATE
+    `;
+
+      const existing = await tx.quotation.findUnique({
+        where: { id },
+        include: {
+          serviceItems: true,
+          _count: {
+            select: { contracts: true },
+          },
+        },
+      });
+
+      if (!existing || existing.leadId !== accessible.leadId) {
+        throw new ApiError("Quotation tidak ditemukan.", 404);
+      }
+
+      const amountChanged =
+        data.amount !== undefined &&
+        !existing.amount.equals(new Prisma.Decimal(data.amount));
+
+      const existingIds = new Set(
+        existing.serviceItems.map((item) => item.masterServiceId),
+      );
+
+      const servicesChanged =
+        data.masterServiceIds !== undefined &&
+        (data.masterServiceIds.length !== existingIds.size ||
+          data.masterServiceIds.some(
+            (serviceId) => !existingIds.has(serviceId),
+          ));
+
+      if (
+        (amountChanged || servicesChanged) &&
+        (existing.status !== "DRAFT" || existing._count.contracts > 0)
+      ) {
+        throw new ApiError(
+          "Nominal dan layanan hanya dapat diubah pada quotation Draft yang belum memiliki contract.",
+          409,
+        );
+      }
+
+      if (existing.status !== "DRAFT" && data.status === "DRAFT") {
+        throw new ApiError(
+          "Quotation yang sudah diproses tidak dapat dikembalikan ke Draft.",
+          409,
+        );
+      }
+
+      if (servicesChanged && data.masterServiceIds !== undefined) {
+        await this.syncServiceItems(tx, id, data.masterServiceIds);
+      }
+
       const updated = await tx.quotation.update({
         where: { id },
+
         data: {
-          ...(data.amount !== undefined && {
-            amount: data.amount,
+          ...(amountChanged && {
+            amount: new Prisma.Decimal(data.amount!),
           }),
+
           ...(data.status !== undefined && {
             status: data.status,
           }),
         },
+
         include: {
           lead: {
             select: {
@@ -239,6 +333,18 @@ export class QuotationService {
               pic: true,
               status: true,
             },
+          },
+
+          serviceItems: {
+            orderBy: [
+              { categorySortOrderSnapshot: "asc" },
+              { serviceNameSnapshot: "asc" },
+              { id: "asc" },
+            ],
+          },
+
+          _count: {
+            select: { contracts: true },
           },
         },
       });
@@ -249,14 +355,20 @@ export class QuotationService {
           action: "UPDATE",
           entity: "Quotation",
           entityId: id,
+
           details: {
             before: {
-              amount: existing.amount,
+              amount: existing.amount.toString(),
               status: existing.status,
+              masterServiceIds: [...existingIds],
             },
+
             after: {
-              amount: updated.amount,
+              amount: updated.amount.toString(),
               status: updated.status,
+              masterServiceIds: updated.serviceItems.map(
+                (item) => item.masterServiceId,
+              ),
             },
           },
         },
@@ -301,10 +413,22 @@ export class QuotationService {
     }
 
     await this.prisma.$transaction(async (tx) => {
-      await tx.quotation.delete({
-        where: { id },
+      const deleted = await tx.quotation.deleteMany({
+        where: {
+          id,
+          status: "DRAFT",
+          contracts: {
+            none: {},
+          },
+        },
       });
 
+      if (deleted.count !== 1) {
+        throw new ApiError(
+          "Quotation sudah berubah atau tidak dapat dihapus.",
+          409,
+        );
+      }
       await tx.auditLog.create({
         data: {
           userId: actorId,
@@ -354,5 +478,161 @@ export class QuotationService {
         "Lead tidak ditemukan atau Anda tidak memiliki akses ke lead ini.",
       );
     }
+  }
+
+  private async syncServiceItems(
+    tx: Prisma.TransactionClient,
+    quotationId: string,
+    masterServiceIds: string[],
+  ) {
+    const existing = await tx.quotationServiceItem.findMany({
+      where: { quotationId },
+      select: {
+        id: true,
+        masterServiceId: true,
+      },
+    });
+
+    const existingIds = new Set(existing.map((item) => item.masterServiceId));
+
+    const requestedIds = new Set(masterServiceIds);
+
+    if (requestedIds.size !== masterServiceIds.length) {
+      throw new ApiError("Terdapat master service duplikat.", 400);
+    }
+
+    const newIds = masterServiceIds.filter((id) => !existingIds.has(id));
+
+    // Hanya validasi layanan yang baru ditambahkan.
+    // Layanan lama tetap mempertahankan snapshot-nya.
+    const newServices = await tx.masterService.findMany({
+      where: {
+        id: { in: newIds },
+        isActive: true,
+      },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        category: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            sortOrder: true,
+          },
+        },
+      },
+    });
+
+    if (newServices.length !== newIds.length) {
+      throw new ApiError(
+        "Salah satu master service tidak ditemukan atau tidak aktif.",
+        400,
+      );
+    }
+
+    const removedIds = existing
+      .filter((item) => !requestedIds.has(item.masterServiceId))
+      .map((item) => item.id);
+
+    if (removedIds.length > 0) {
+      await tx.quotationServiceItem.deleteMany({
+        where: {
+          quotationId,
+          id: { in: removedIds },
+        },
+      });
+    }
+
+    if (newServices.length > 0) {
+      await tx.quotationServiceItem.createMany({
+        data: newServices.map((service) => ({
+          quotationId,
+          masterServiceId: service.id,
+
+          serviceCodeSnapshot: service.code,
+          serviceNameSnapshot: service.name,
+          serviceDescriptionSnapshot: service.description,
+
+          categoryIdSnapshot: service.category?.id ?? null,
+          categoryCodeSnapshot: service.category?.code ?? null,
+          categoryNameSnapshot: service.category?.name ?? null,
+          categorySortOrderSnapshot: service.category?.sortOrder ?? null,
+        })),
+      });
+    }
+
+    return tx.quotationServiceItem.findMany({
+      where: { quotationId },
+      orderBy: [
+        { categorySortOrderSnapshot: "asc" },
+        { serviceNameSnapshot: "asc" },
+        { id: "asc" },
+      ],
+    });
+  }
+
+  private async getCatalogServiceOptions() {
+    return this.prisma.masterService.findMany({
+      where: {
+        isActive: true,
+      },
+
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+
+        category: {
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            sortOrder: true,
+            isActive: true,
+          },
+        },
+      },
+
+      orderBy: [{ name: "asc" }, { id: "asc" }],
+    });
+  }
+
+  async getCreateServiceOptions(leadId: string, actorId: string) {
+    await this.validateLeadAccess(leadId, actorId, "crm.quotation.create");
+
+    return this.getCatalogServiceOptions();
+  }
+
+  async getEditServiceOptions(quotationId: string, actorId: string) {
+    const quotation = await this.prisma.quotation.findUnique({
+      where: { id: quotationId },
+      select: {
+        leadId: true,
+        status: true,
+        _count: {
+          select: { contracts: true },
+        },
+      },
+    });
+
+    if (!quotation) {
+      throw new ApiError("Quotation tidak ditemukan.", 404);
+    }
+
+    await this.validateLeadAccess(
+      quotation.leadId,
+      actorId,
+      "crm.quotation.update",
+    );
+
+    if (quotation.status !== "DRAFT" || quotation._count.contracts > 0) {
+      throw new ApiError("Layanan quotation tidak dapat diubah.", 409);
+    }
+
+    return this.getCatalogServiceOptions();
   }
 }

@@ -272,14 +272,38 @@ model Quotation {
   amount      Decimal         @db.Decimal(15, 2)
   status      QuotationStatus @default(DRAFT)
 
-  contracts Contract[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  contracts    Contract[]
+  serviceItems QuotationServiceItem[]
+  createdAt    DateTime               @default(now())
+  updatedAt    DateTime               @updatedAt
 
   @@index([leadId])
   @@index([status])
   @@index([createdAt])
+}
+
+model QuotationServiceItem {
+  id String @id @default(uuid())
+
+  quotationId String
+  quotation   Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  masterServiceId String
+  masterService   MasterService @relation(fields: [masterServiceId], references: [id], onDelete: Restrict)
+
+  serviceCodeSnapshot        String
+  serviceNameSnapshot        String
+  serviceDescriptionSnapshot String?
+
+  categoryIdSnapshot        String?
+  categoryCodeSnapshot      String?
+  categoryNameSnapshot      String?
+  categorySortOrderSnapshot Int?
+
+  createdAt DateTime @default(now())
+
+  @@unique([quotationId, masterServiceId])
+  @@index([masterServiceId])
 }
 
 // ==========================================
@@ -372,10 +396,10 @@ model Contract {
   termsConditions String? @db.Text
   documentUrl     String?
 
-  status          ContractStatus @default(DRAFT)
-  renewalReminder Boolean        @default(false)
-
-  projects Project[]
+  status          ContractStatus        @default(DRAFT)
+  renewalReminder Boolean               @default(false)
+  serviceItems    ContractServiceItem[]
+  projects        Project[]
 
   invoices          Invoice[]
   recurringBillings RecurringBilling[]
@@ -389,6 +413,30 @@ model Contract {
   updatedAt DateTime @updatedAt
 }
 
+model ContractServiceItem {
+  id String @id @default(uuid())
+
+  contractId String
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  masterServiceId String
+  masterService   MasterService @relation(fields: [masterServiceId], references: [id], onDelete: Restrict)
+
+  serviceCodeSnapshot        String
+  serviceNameSnapshot        String
+  serviceDescriptionSnapshot String?
+
+  categoryIdSnapshot        String?
+  categoryCodeSnapshot      String?
+  categoryNameSnapshot      String?
+  categorySortOrderSnapshot Int?
+
+  createdAt DateTime @default(now())
+
+  @@unique([contractId, masterServiceId])
+  @@index([masterServiceId])
+}
+
 // ==========================================
 // PART 4: MASTER DATA & WORKFLOW ENGINE
 // ==========================================
@@ -400,6 +448,22 @@ enum WorkflowStatus {
   CANCELLED
 }
 
+model ServiceCategory {
+  id          String  @id @default(uuid())
+  code        String  @unique @db.VarChar(50)
+  name        String  @unique @db.VarChar(150)
+  description String? @db.Text
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+
+  masterServices MasterService[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+}
+
 model MasterService {
   id          String  @id @default(uuid())
   code        String  @unique
@@ -407,16 +471,21 @@ model MasterService {
   description String?
   isActive    Boolean @default(true)
 
+  categoryId String?
+  category   ServiceCategory? @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
   workflowTemplateId String?
   defaultTemplate    WorkflowTemplate? @relation(fields: [workflowTemplateId], references: [id], onDelete: SetNull)
 
   projectServices ProjectService[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  quotationItems  QuotationServiceItem[]
+  contractItems   ContractServiceItem[]
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
 
   @@index([name])
   @@index([isActive])
+  @@index([categoryId])
   @@index([workflowTemplateId])
 }
 

@@ -4,6 +4,7 @@ import {
   IsInt,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   Min,
 } from "class-validator";
@@ -34,4 +35,8 @@ export class QueryMasterServiceDTO {
   @IsOptional()
   @Transform(({ value }) => parseInt(value, 10))
   limit?: number = 10;
+
+  @IsOptional()
+  @IsUUID("4")
+  categoryId?: string;
 }
