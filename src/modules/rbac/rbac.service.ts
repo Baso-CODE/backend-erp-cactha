@@ -58,6 +58,15 @@ export class RbacService {
               },
             },
           },
+          _count: {
+            select: {
+              assignedTasks: {
+                where: {
+                  status: "COMPLETED",
+                },
+              },
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
       }),
@@ -65,7 +74,11 @@ export class RbacService {
     ]);
 
     return {
-      data: users,
+      data: users.map((user) => ({
+        ...user,
+        tasksCompleted: user._count.assignedTasks,
+      })),
+
       meta: {
         total,
         page,
@@ -417,21 +430,33 @@ export class RbacService {
   // ROLE MANAGEMENT
   // ==========================================
 
-  async getRoles() {
+  async getRoles(includeInactive = false) {
     return this.prisma.role.findMany({
-      where: {
-        isActive: true,
-      },
+      where: includeInactive
+        ? {}
+        : {
+            isActive: true,
+          },
+
       select: {
         id: true,
         code: true,
         name: true,
         description: true,
         isSystem: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+
+        _count: {
+          select: {
+            users: true,
+            permissions: true,
+          },
+        },
       },
-      orderBy: {
-        name: "asc",
-      },
+
+      orderBy: [{ isActive: "desc" }, { name: "asc" }],
     });
   }
 
@@ -924,7 +949,7 @@ export class RbacService {
     const inactiveUsers = totalUsers - activeUsers;
 
     // TODO: Ganti dengan perhitungan dari Task / Project.
-    const averageEfficiency = 91.4;
+    const averageEfficiency = null;
 
     return {
       totalUsers,
@@ -935,18 +960,93 @@ export class RbacService {
   }
 
   async getTeamPerformance(period: "7days" | "30days" | "3months" = "7days") {
-    // TODO: Nantinya dihitung dari Task / Project berdasarkan period.
-    void period;
+    const days = period === "30days" ? 30 : period === "3months" ? 90 : 7;
 
-    return [
-      { date: "Jun 24", performance: 40 },
-      { date: "Jun 25", performance: 30 },
-      { date: "Jun 26", performance: 65 },
-      { date: "Jun 27", performance: 85 },
-      { date: "Jun 28", performance: 50 },
-      { date: "Jun 29", performance: 70 },
-      { date: "Jun 30", performance: 95 },
-    ];
+    const dayMs = 24 * 60 * 60 * 1000;
+    const offsetMs = 7 * 60 * 60 * 1000;
+
+    // Kalender Asia/Jakarta.
+    const today = Math.floor((Date.now() + offsetMs) / dayMs) * dayMs;
+
+    const firstDay = today - (days - 1) * dayMs;
+
+    const from = new Date(firstDay - offsetMs);
+    const until = new Date(today + dayMs - offsetMs);
+
+    const logs = await this.prisma.auditLog.findMany({
+      where: {
+        entity: "Task",
+        action: {
+          in: ["UPDATE", "MOVE", "CREATE"],
+        },
+        createdAt: {
+          gte: from,
+          lt: until,
+        },
+      },
+      select: {
+        action: true,
+        details: true,
+        createdAt: true,
+      },
+    });
+
+    function asObject(value: unknown) {
+      if (
+        typeof value === "object" &&
+        value !== null &&
+        !Array.isArray(value)
+      ) {
+        return value as Record<string, unknown>;
+      }
+
+      return {};
+    }
+
+    const counts = new Map<string, number>();
+
+    for (const log of logs) {
+      const details = asObject(log.details);
+
+      const before = asObject(details.before);
+      const after = asObject(details.after);
+
+      const completed =
+        (log.action === "UPDATE" &&
+          before.status !== undefined &&
+          before.status !== "COMPLETED" &&
+          after.status === "COMPLETED") ||
+        (log.action === "MOVE" &&
+          details.fromStatus !== undefined &&
+          details.fromStatus !== "COMPLETED" &&
+          details.toStatus === "COMPLETED") ||
+        (log.action === "CREATE" && details.status === "COMPLETED");
+
+      if (!completed) continue;
+
+      const key = new Date(log.createdAt.getTime() + offsetMs)
+        .toISOString()
+        .slice(0, 10);
+
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    const formatter = new Intl.DateTimeFormat("id-ID", {
+      day: "2-digit",
+      month: "short",
+      timeZone: "UTC",
+    });
+
+    return Array.from({ length: days }, (_, index) => {
+      const day = new Date(firstDay + index * dayMs);
+
+      const key = day.toISOString().slice(0, 10);
+
+      return {
+        date: formatter.format(day),
+        performance: counts.get(key) ?? 0,
+      };
+    });
   }
 
   // ==========================================

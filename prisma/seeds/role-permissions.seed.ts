@@ -388,7 +388,69 @@ const rolePermissions: Record<string, RolePermissionConfig[]> = {
 };
 
 export async function seedRolePermissions(prisma: PrismaClient) {
+  // ==========================================
+  // OWNER - DYNAMIC FULL PERMISSIONS
+  // ==========================================
+
+  const ownerRole = await prisma.role.findUnique({
+    where: {
+      code: "OWNER",
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (!ownerRole) {
+    throw new Error('System role "OWNER" tidak ditemukan.');
+  }
+
+  const allPermissions = await prisma.permission.findMany({
+    select: {
+      id: true,
+      code: true,
+    },
+  });
+
+  if (allPermissions.length === 0) {
+    throw new Error("Permission registry masih kosong.");
+  }
+
+  await prisma.$transaction(
+    allPermissions.map((permission) =>
+      prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: ownerRole.id,
+            permissionId: permission.id,
+          },
+        },
+        update: {
+          scope: AccessScope.ALL,
+        },
+        create: {
+          roleId: ownerRole.id,
+          permissionId: permission.id,
+          scope: AccessScope.ALL,
+        },
+      }),
+    ),
+  );
+
+  console.log(
+    `OWNER berhasil mendapatkan ${allPermissions.length} permission dengan scope ALL.`,
+  );
+
+  // ==========================================
+  // OTHER ROLES - PREDEFINED PERMISSIONS
+  // ==========================================
+
   for (const [roleCode, permissions] of Object.entries(rolePermissions)) {
+    // OWNER sudah diproses secara dinamis.
+    if (roleCode === "OWNER") {
+      continue;
+    }
+
     const role = await prisma.role.findUnique({
       where: {
         code: roleCode,
@@ -411,6 +473,7 @@ export async function seedRolePermissions(prisma: PrismaClient) {
         console.warn(
           `Permission "${item.permission}" tidak ditemukan untuk role "${roleCode}". Dilewati.`,
         );
+
         continue;
       }
 

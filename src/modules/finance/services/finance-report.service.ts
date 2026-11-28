@@ -385,7 +385,7 @@ export class FinanceReportService {
       action: "EXPORT",
       OR: allowedTypes.map((reportType) => ({
         details: {
-          path: "$.reportType",
+          path: ["reportType"],
           equals: reportType,
         },
       })),

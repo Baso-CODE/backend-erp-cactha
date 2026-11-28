@@ -210,7 +210,9 @@ export class RbacController {
     next: NextFunction,
   ): Promise<void> => {
     try {
-      const roles = await this.rbacService.getRoles();
+      const includeInactive = req.query.includeInactive === "true";
+
+      const roles = await this.rbacService.getRoles(includeInactive);
 
       res.status(200).json({
         success: true,
@@ -220,7 +222,6 @@ export class RbacController {
       next(error);
     }
   };
-
   // Untuk mengisi 4 Kartu Metrik Paling Atas
   getMetrics = async (req: Request, res: Response, next: NextFunction) => {
     try {
