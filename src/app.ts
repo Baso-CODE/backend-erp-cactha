@@ -74,7 +74,10 @@ export default class App {
 
     this.app.use(
       cors({
-        origin: env().CORS_ORIGIN,
+        origin: env()
+          .CORS_ORIGIN.split(",")
+          .map((origin) => origin.trim())
+          .filter(Boolean),
         credentials: true,
         methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
         allowedHeaders: [

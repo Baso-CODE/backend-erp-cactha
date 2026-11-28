@@ -14,7 +14,9 @@ export class AuthService {
 
   async login(data: LoginDTO) {
     const user = await this.prisma.user.findUnique({
-      where: { email: data.email },
+      where: {
+        email: data.email,
+      },
       include: {
         roles: {
           include: {
@@ -48,17 +50,27 @@ export class AuthService {
       throw new Error("Email atau password salah.");
     }
 
-    const roles = user.roles.map((userRole) => userRole.role.code);
+    // ==========================================
+    // FILTER ACTIVE ROLES
+    // ==========================================
+
+    const activeRoles = user.roles.filter((userRole) => userRole.role.isActive);
+
+    const roles = activeRoles.map((userRole) => userRole.role.code);
 
     const permissions = [
       ...new Set(
-        user.roles.flatMap((userRole) =>
+        activeRoles.flatMap((userRole) =>
           userRole.role.permissions.map(
             (rolePermission) => rolePermission.permission.code,
           ),
         ),
       ),
     ];
+
+    // ==========================================
+    // GENERATE JWT
+    // ==========================================
 
     const secret = process.env.JWT_SECRET;
 
@@ -91,7 +103,9 @@ export class AuthService {
 
   async getCurrentUser(userId: string) {
     const user = await this.prisma.user.findUnique({
-      where: { id: userId },
+      where: {
+        id: userId,
+      },
       include: {
         roles: {
           include: {
@@ -113,11 +127,17 @@ export class AuthService {
       throw new Error("User tidak ditemukan atau sudah tidak aktif.");
     }
 
-    const roles = user.roles.map((userRole) => userRole.role.code);
+    // ==========================================
+    // FILTER ACTIVE ROLES
+    // ==========================================
+
+    const activeRoles = user.roles.filter((userRole) => userRole.role.isActive);
+
+    const roles = activeRoles.map((userRole) => userRole.role.code);
 
     const permissions = [
       ...new Set(
-        user.roles.flatMap((userRole) =>
+        activeRoles.flatMap((userRole) =>
           userRole.role.permissions.map(
             (rolePermission) => rolePermission.permission.code,
           ),

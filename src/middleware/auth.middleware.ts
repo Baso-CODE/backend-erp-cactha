@@ -59,11 +59,13 @@ export const authenticateToken = async (
       return;
     }
 
-    const roles = user.roles.map((userRole) => userRole.role.code);
+    const activeRoles = user.roles.filter((userRole) => userRole.role.isActive);
+
+    const roles = activeRoles.map((userRole) => userRole.role.code);
 
     const permissions = [
       ...new Set(
-        user.roles.flatMap((userRole) =>
+        activeRoles.flatMap((userRole) =>
           userRole.role.permissions.map(
             (rolePermission) => rolePermission.permission.code,
           ),
